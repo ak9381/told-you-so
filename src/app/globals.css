@@ -1,0 +1,36 @@
+@import "tailwindcss";
+
+:root {
+  --paper: #F4EFE6;
+  --paper-light: #FAF7F2;
+  --paper-dark: #E8E1D5;
+  --paper-border: #DDD3C1;
+  --ink: #1C1917;
+  --ink-muted: #44403C;
+  --ink-faint: #78716C;
+  --stamp-red: #C0392B;
+  --stamp-red-faint: #FADBD8;
+  --stamp-red-dark: #962D22;
+}
+
+@theme {
+  --color-paper: var(--paper);
+  --color-paper-light: var(--paper-light);
+  --color-paper-dark: var(--paper-dark);
+  --color-paper-border: var(--paper-border);
+  --color-ink: var(--ink);
+  --color-ink-muted: var(--ink-muted);
+  --color-ink-faint: var(--ink-faint);
+  --color-stamp-red: var(--stamp-red);
+  --color-stamp-red-faint: var(--stamp-red-faint);
+  --color-stamp-red-dark: var(--stamp-red-dark);
+  --font-serif: var(--font-fraunces), Georgia, serif;
+  --font-mono: var(--font-jetbrains-mono), Menlo, monospace;
+}
+
+body {
+  background-color: var(--paper);
+  color: var(--ink);
+  font-family: var(--font-serif);
+  min-height: 100vh;
+}

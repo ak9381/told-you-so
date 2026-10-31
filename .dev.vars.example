@@ -1,0 +1,15 @@
+# Told You So — Environment Variables Example
+# Keep all actual secrets in .dev.vars (which is ignored by Git). Never commit real secrets.
+
+GEMINI_API_KEY=
+SUPABASE_URL=
+SUPABASE_ANON_KEY=
+SUPABASE_SERVICE_KEY=
+NOTION_TOKEN=
+NOTION_DB_ID=
+RESEND_API_KEY=
+RESEND_FROM=
+CRON_SECRET=
+ALLOWED_EMAILS=
+GEMINI_DAILY_CAP=60
+
