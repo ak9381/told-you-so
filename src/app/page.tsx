@@ -155,6 +155,7 @@ export default function HomePage() {
   const [projectsLoaded, setProjectsLoaded] = useState(false);
   const [meetingLink, setMeetingLink] = useState("");
   const [meetingName, setMeetingName] = useState("");
+  const [meetingDate, setMeetingDate] = useState<string>(() => new Date().toISOString().slice(0, 10));
   const [uploadType, setUploadType] = useState<"notes" | "transcript" | "whatsapp" | "slack">(
     "notes"
   );
@@ -462,7 +463,16 @@ export default function HomePage() {
   });
   const currentProjectName = projects.find((p) => p.id === selectedProjectId)?.name || "Meeting";
   const autoMeetingTitle = `${currentProjectName} #2 · ${formattedTime} IST`;
-  const meetingTitleToUse = meetingName.trim() || autoMeetingTitle;
+  const dateLabel = meetingDate
+    ? new Date(meetingDate + "T00:00:00").toLocaleDateString("en-IN", {
+        day: "numeric",
+        month: "short",
+        year: "numeric",
+      })
+    : "";
+  const meetingTitleToUse = meetingName.trim()
+    ? `${meetingName.trim()}${dateLabel ? ` · ${dateLabel}` : ""}`
+    : autoMeetingTitle;
   const sourceLabel = activeTab === "debrief" ? "voice" : uploadType;
   const projectLabel = projectsLoaded ? currentProjectName : "Loading…";
 
@@ -574,7 +584,10 @@ export default function HomePage() {
       });
 
       if (res.ok) {
-        setCommittedStatus("Confirmed — saved to the ledger");
+        const n = selectedDecisions.length + selectedActions.length;
+        setCommittedStatus(
+          `Ingested ✓ — ${n} item${n === 1 ? "" : "s"} saved to this project's memory`
+        );
         loadTimeline(selectedProjectId);
       } else {
         const body = await res.json().catch(() => ({}));
@@ -635,12 +648,18 @@ export default function HomePage() {
             </div>
             <InfoDot text="Click Use mic and talk — it uses Chrome's built-in speech-to-text (free, nothing to install, no Wispr needed). You can also just type, or dictate with Wispr Flow if you have it. We clean up the messy, self-correcting way people really talk." />
           </div>
-          <div className="flex items-center gap-2 mb-3">
+          <div className="flex flex-wrap items-center gap-2 mb-3">
             <input
               value={meetingName}
               onChange={(e) => setMeetingName(e.target.value)}
               placeholder="Name this meeting (optional)"
-              className="flex-1 min-w-0 rounded-lg border border-[#E7E5E0] bg-white/60 px-3 py-2 text-sm text-[#1A1715] placeholder:text-[#9B9690] focus:outline-none focus:border-[#B9B6AE]"
+              className="flex-1 min-w-[140px] rounded-lg border border-[#E7E5E0] bg-white/60 px-3 py-2 text-sm text-[#1A1715] placeholder:text-[#9B9690] focus:outline-none focus:border-[#B9B6AE]"
+            />
+            <input
+              type="date"
+              value={meetingDate}
+              onChange={(e) => setMeetingDate(e.target.value)}
+              className="shrink-0 rounded-lg border border-[#E7E5E0] bg-white/60 px-2.5 py-2 text-sm text-[#6B6560] focus:outline-none focus:border-[#B9B6AE]"
             />
             <span className="shrink-0 text-xs text-[#9B9690]">→ {projectLabel}</span>
           </div>
@@ -711,12 +730,18 @@ export default function HomePage() {
             <InfoDot text="Upload any plain-text notes, a meeting transcript, or a chat export. WhatsApp: Export chat → Without media → drop the .txt here. Slack: export the channel. No API needed. Pick what it is in the dropdown so we ingest it correctly." />
           </div>
           <p className="text-sm text-[#6B6560] mb-3">Drag &amp; drop notes, transcripts, or chat exports.</p>
-          <div className="flex items-center gap-2 mb-3">
+          <div className="flex flex-wrap items-center gap-2 mb-3">
             <input
               value={meetingName}
               onChange={(e) => setMeetingName(e.target.value)}
               placeholder="Name this source (optional)"
-              className="flex-1 min-w-0 rounded-lg border border-[#E7E5E0] bg-white/60 px-3 py-2 text-sm text-[#1A1715] placeholder:text-[#9B9690] focus:outline-none focus:border-[#B9B6AE]"
+              className="flex-1 min-w-[120px] rounded-lg border border-[#E7E5E0] bg-white/60 px-3 py-2 text-sm text-[#1A1715] placeholder:text-[#9B9690] focus:outline-none focus:border-[#B9B6AE]"
+            />
+            <input
+              type="date"
+              value={meetingDate}
+              onChange={(e) => setMeetingDate(e.target.value)}
+              className="shrink-0 rounded-lg border border-[#E7E5E0] bg-white/60 px-2.5 py-2 text-sm text-[#6B6560] focus:outline-none focus:border-[#B9B6AE]"
             />
             <select
               value={uploadType}
@@ -777,6 +802,21 @@ export default function HomePage() {
               <h3 className="font-serif text-2xl text-[#1A1715]">Live Meeting</h3>
             </div>
             <InfoDot text={`Paste a Google Meet or Zoom link — we open the call and listen live (Chrome speech recognition, not Wispr), flagging conflicts with earlier decisions as people talk. It checks against the project selected in the sidebar (${currentProjectName}). No link? Use 'play a demo clip'.`} />
+          </div>
+          <div className="flex flex-wrap items-center gap-2 mb-3">
+            <input
+              value={meetingName}
+              onChange={(e) => setMeetingName(e.target.value)}
+              placeholder="Name this live meeting (optional)"
+              className="flex-1 min-w-[140px] rounded-lg border border-[#E7E5E0] bg-white/60 px-3 py-2 text-sm text-[#1A1715] placeholder:text-[#9B9690] focus:outline-none focus:border-[#B9B6AE]"
+            />
+            <input
+              type="date"
+              value={meetingDate}
+              onChange={(e) => setMeetingDate(e.target.value)}
+              className="shrink-0 rounded-lg border border-[#E7E5E0] bg-white/60 px-2.5 py-2 text-sm text-[#6B6560] focus:outline-none focus:border-[#B9B6AE]"
+            />
+            <span className="shrink-0 text-xs text-[#9B9690]">→ {projectLabel}</span>
           </div>
           <input
             value={meetingLink}

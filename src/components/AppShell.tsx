@@ -209,8 +209,8 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
       </aside>
 
       <main className="flex-1 min-w-0 flex flex-col">
-        {/* Sticky glass header with the tools nav */}
-        <header className="sticky top-0 z-30 glass-shell border-b border-white/60">
+        {/* Sticky dark header with the tools nav */}
+        <header className="sticky top-0 z-30 bg-[#1C1C1E] border-b border-black/30">
           <nav className="max-w-6xl px-6 md:px-10 py-3 flex items-center justify-end gap-1">
             {TOOLS.map((t) => {
               const active = t.href === "/" ? pathname === "/" : pathname === t.href;
@@ -221,8 +221,8 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
                   href={href}
                   className={`rounded-lg px-3 py-1.5 text-sm font-medium transition-colors ${
                     active
-                      ? "bg-[#F1F0EC] text-[#1A1715]"
-                      : "text-[#6B6560] hover:text-[#1A1715] hover:bg-[#F7F6F3]"
+                      ? "bg-white/15 text-white"
+                      : "text-white/70 hover:text-white hover:bg-white/10"
                   }`}
                 >
                   {t.label}
