@@ -15,3 +15,12 @@ The Import Meet transcript button takes the pasted transcript from Google Meet, 
 - Import a Meet transcript and confirm speaker question mark lines now show real names, and the source shows as Meet transcript with source_type meet_transcript.
 
 ## Commit and push when green
+
+## Launch from a link (added 4:40 PM)
+Spoken script: "On the Live page, add a Meeting link box and a Launch button. Accept only Google Meet links like meet.google.com/abc-defg-hij, and Zoom links on any zoom.us subdomain with /j/ followed by the meeting id. Anything else shows: Only Google Meet and Zoom links are supported for now. For Zoom, rewrite the link to the browser join link, zoom.us/wc/join/ followed by the id, keeping the pwd parameter, so it stays in Chrome. When I press Launch, open the meeting in a popup window on the left half of the screen, resize our window to the right half if allowed, and start live listening in the same click. Show a hint: Sign in if asked, join the call, and we'll start listening. Save the link on the meeting record. No server calls to Zoom or Google, and no Playwright."
+
+Validation:
+- [ ] Meet link opens a popup and listening starts in one click.
+- [ ] Zoom /j/ link opens the /wc/join/ browser version with the password kept.
+- [ ] A random URL shows the supported-links error.
+- [ ] Signed-out user sees the Meet or Zoom sign-in in the popup and can still join.
