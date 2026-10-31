@@ -1,4 +1,4 @@
-import { isEmailAllowed } from "../lib/allowlist";
+import { isEmailAllowed } from "../../src/lib/allowlist";
 
 function testAllowlist() {
   console.log("🧪 Testing allowlist logic...");
