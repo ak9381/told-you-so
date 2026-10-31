@@ -1,7 +1,7 @@
 import { log } from "@/lib/log";
 import { NextRequest, NextResponse } from "next/server";
 import { createServerClient } from "@/lib/supabase";
-import { createTask, updateNotionTaskStatus } from "@/lib/trackers";
+import { createTask, updateNotionTaskStatus, updateNotionTaskOwner } from "@/lib/trackers";
 import { requireUser, readJson, canAccessProject, canAccessAction, isUuid, jsonError } from "@/lib/api-guard";
 
 // Supabase returns an embedded relation as an object or a 1-element array.
@@ -78,12 +78,24 @@ export async function POST(request: NextRequest) {
         return jsonError("That person isn't on this project's team.", 400);
       }
     }
-    const { error } = await supabase
+    const { data: updated, error } = await supabase
       .from("actions")
       .update({ owner: owner.slice(0, 120), owner_id: isUuid(ownerId) ? ownerId : null })
-      .eq("id", actionId);
+      .eq("id", actionId)
+      .select("notion_page_id")
+      .maybeSingle();
     if (error) return NextResponse.json({ error: error.message }, { status: 500 });
-    return NextResponse.json({ ok: true });
+    // B5: keep the Notion page's Owner in sync (best-effort, reported back).
+    let notionSynced: boolean | null = null;
+    if (updated?.notion_page_id) {
+      const r = await updateNotionTaskOwner(updated.notion_page_id, owner);
+      notionSynced = r.ok;
+      if (!r.ok) {
+        log.warn("notion owner sync failed", { actionId, error: r.error });
+        await supabase.from("notion_log").insert({ action_id: actionId, notion_page_id: updated.notion_page_id, status: "failed", error: `owner sync: ${r.error}` });
+      }
+    }
+    return NextResponse.json({ ok: true, notionSynced });
   }
 
   // "Send to Notion": file (or re-file) this task.

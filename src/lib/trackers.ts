@@ -76,10 +76,16 @@ const STATUS_TO_NOTION: Record<string, string> = {
 };
 
 /** Push a status change to an existing Notion page (real-time sync from the ledger). */
-export async function updateNotionTaskStatus(
-  pageId: string,
-  status: string
-): Promise<TrackerResult> {
+export async function updateNotionTaskStatus(pageId: string, status: string): Promise<TrackerResult> {
+  return patchNotionPage(pageId, { Status: { select: { name: STATUS_TO_NOTION[status] || status } } });
+}
+
+/** B5: push an owner reassignment to the Notion page's Owner (rich_text). */
+export async function updateNotionTaskOwner(pageId: string, owner: string): Promise<TrackerResult> {
+  return patchNotionPage(pageId, { Owner: { rich_text: [{ text: { content: owner.slice(0, 120) } }] } });
+}
+
+async function patchNotionPage(pageId: string, properties: Record<string, unknown>): Promise<TrackerResult> {
   const token = process.env.NOTION_TOKEN;
   if (!token) return { ok: false, error: "Notion not configured" };
   try {
@@ -90,9 +96,7 @@ export async function updateNotionTaskStatus(
         "Notion-Version": NOTION_VERSION,
         "Content-Type": "application/json",
       },
-      body: JSON.stringify({
-        properties: { Status: { select: { name: STATUS_TO_NOTION[status] || status } } },
-      }),
+      body: JSON.stringify({ properties }),
     }, { timeoutMs: 15_000, retries: 1, label: "notion-update" });
     const data = await res.json().catch(() => ({}));
     if (!res.ok) return { ok: false, error: data?.message || `HTTP ${res.status}` };
