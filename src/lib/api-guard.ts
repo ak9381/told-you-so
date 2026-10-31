@@ -1,7 +1,7 @@
 import { log } from "@/lib/log";
 import { NextResponse, type NextRequest } from "next/server";
-import type { SupabaseClient, User } from "@supabase/supabase-js";
-import { getRequestUser } from "@/lib/supabase-ssr";
+import type { SupabaseClient } from "@supabase/supabase-js";
+import { getRequestUser, type AuthUser as User } from "@/lib/supabase-ssr";
 import { isEmailAllowed } from "@/lib/allowlist";
 import { checkRateLimit } from "@/lib/rate-limit";
 
