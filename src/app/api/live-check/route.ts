@@ -1,6 +1,7 @@
 import { fetchWithRetry } from "@/lib/http";
 import { NextRequest, NextResponse } from "next/server";
-import { getRequestUser } from "@/lib/supabase-ssr";
+import { requireUser, readJson, canAccessProject } from "@/lib/api-guard";
+import { createServerClient } from "@/lib/supabase";
 import { getProjectMemory } from "@/lib/agent";
 import { checkAndIncrementUsage } from "@/lib/usage";
 
@@ -22,8 +23,12 @@ export interface LiveResult {
 
 export async function POST(request: NextRequest) {
   try {
-    const { newText, projectId, demo } = await request.json();
-    if (!newText || !projectId) {
+    const auth = await requireUser(request);
+    if (auth.error) return auth.error;
+    const parsed = await readJson(request, 50_000);
+    if (parsed.error) return parsed.error;
+    const { newText, projectId, demo } = parsed.body as { newText?: unknown; projectId?: unknown; demo?: unknown };
+    if (typeof newText !== "string" || !newText.trim() || typeof projectId !== "string" || newText.length > 20_000) {
       return NextResponse.json({ skipped: true, results: [] });
     }
 
@@ -34,10 +39,12 @@ export async function POST(request: NextRequest) {
 
     // 2. Per-user rate limit (1 live-check / 15s, daily cap). The scripted demo
     //    clip is exempt — its lines fire faster than 15s on purpose.
-    if (!demo) {
-      const userId =
-        (await getRequestUser(request))?.id ?? "00000000-0000-0000-0000-000000000000";
-      const usage = await checkAndIncrementUsage(userId, true);
+    if (!(await canAccessProject(createServerClient(), projectId, auth.user.id))) {
+      return NextResponse.json({ skipped: true, reason: "no_project", results: [] }, { status: 404 });
+    }
+    {
+      // Demo clip skips the 15s spacing but still counts toward the daily AI cap.
+      const usage = await checkAndIncrementUsage(auth.user.id, !demo);
       if (!usage.allowed) {
         return NextResponse.json({ skipped: true, reason: usage.reason, results: [] });
       }
@@ -93,8 +100,13 @@ Return ONLY JSON: {"results":[{"quote":"exact words from the new lines","topic":
     }
     const data = await res.json();
     const text = data?.candidates?.[0]?.content?.parts?.[0]?.text;
-    const parsed = JSON.parse(text);
-    const results: LiveResult[] = Array.isArray(parsed.results) ? parsed.results : [];
+    let out: { results?: unknown } = {};
+    try {
+      out = JSON.parse(text ?? "{}");
+    } catch {
+      return NextResponse.json({ skipped: true, reason: "bad_ai_json", results: [] });
+    }
+    const results: LiveResult[] = Array.isArray(out.results) ? (out.results as LiveResult[]) : [];
 
     return NextResponse.json({ skipped: false, results });
   } catch (e) {
