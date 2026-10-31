@@ -1,0 +1,8 @@
+[31/10/26, 10:58 am] Messages and calls are end-to-end encrypted. No one outside of this chat, not even WhatsApp, can read or listen to them.
+[31/10/26, 11:02 am] Meera (PM, demo): DEMO DATA. Ankit has joined as architect for the Northwind dashboard 🎉
+[31/10/26, 11:05 am] Ankit (Architect, demo): Hi all. Quick thought, why are we on Postgres? Mongo is faster for dashboards, let's switch the ledger to Mongo.
+[31/10/26, 11:06 am] Ankit (Architect, demo): Also let's just do polling every 30 sec for settlement status, webhooks are overkill for MVP.
+[31/10/26, 11:08 am] Meera (PM, demo): Sounds simpler. Akash?
+[31/10/26, 11:10 am] Akash: Let me check what we decided
+[31/10/26, 11:12 am] Ankit (Architect, demo): Clerk is fine, let's keep Clerk but only Google login for now.
+[31/10/26, 11:13 am] Meera (PM, demo): <Media omitted>

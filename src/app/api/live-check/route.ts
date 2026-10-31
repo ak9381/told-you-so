@@ -7,7 +7,7 @@ const GEMINI_MODEL = "gemini-3.5-flash-lite";
 
 // Cheap gate: only call Gemini when a chunk actually looks decision-like.
 const DECISION_GATE =
-  /\b(deadline|due|team|submit|submission|video|deploy|launch|must|let'?s|decide|decided|budget|price|pricing|scope|member|people|minute|min|hour|tonight|tomorrow|monday|tuesday|wednesday|thursday|friday|by\s+\d|\d+\s*(pm|am|min|minutes|members|people))/i;
+  /\b(deadline|due|team|submit|submission|video|deploy|launch|must|let'?s|decide|decided|budget|price|pricing|scope|member|people|minute|min|hour|tonight|tomorrow|monday|tuesday|wednesday|thursday|friday|by\s+\d|\d+\s*(pm|am|min|minutes|members|people)|postgres|mongo|database|\bdb\b|polling|webhook|auth|clerk|jwt|switch|instead|go with|why are we)/i;
 
 async function resolveUserId(request: NextRequest): Promise<string | null> {
   const token = request.cookies.get("sb-access-token")?.value;

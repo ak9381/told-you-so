@@ -26,15 +26,25 @@ interface LiveCard {
   ts: string;
 }
 
-// Meeting-2 demo script (plan §5c) — the mic-free fallback path.
-const DEMO_CLIP: { speaker: string; text: string }[] = [
-  { speaker: "Akash", text: "Okay everyone, quick sync on the hackathon submission." },
-  { speaker: "Rohan", text: "I think the demo video can be like five minutes, we have a lot to show." },
-  { speaker: "Akash", text: "And the LinkedIn posts we can do by Monday, right?" },
-  { speaker: "Neha", text: "Let's submit by 11 PM tonight to be safe." },
-  { speaker: "Akash", text: "Decided: Priya owns the demo video, due 10:30 tonight." },
-  { speaker: "Akash", text: "Okay, ending the meeting." },
-];
+// Mic-free demo scripts, per project (plan §5c; fintech = stage-9d §4).
+const DEMO_CLIPS: Record<string, { speaker: string; text: string }[]> = {
+  "Hackathon submission": [
+    { speaker: "Akash", text: "Okay everyone, quick sync on the hackathon submission." },
+    { speaker: "Rohan", text: "I think the demo video can be like five minutes, we have a lot to show." },
+    { speaker: "Akash", text: "And the LinkedIn posts we can do by Monday, right?" },
+    { speaker: "Neha", text: "Let's submit by 11 PM tonight to be safe." },
+    { speaker: "Akash", text: "Decided: Priya owns the demo video, due 10:30 tonight." },
+    { speaker: "Akash", text: "Okay, ending the meeting." },
+  ],
+  "Fintech recon dashboard": [
+    { speaker: "Akash", text: "Welcome Ankit, quick sync on the dashboard." },
+    { speaker: "Ankit", text: "Why are we on Postgres? Mongo is faster for dashboards, let's switch." },
+    { speaker: "Ankit", text: "And let's just do polling, webhooks are overkill for an MVP." },
+    { speaker: "Ankit", text: "Clerk for auth is fine by me, maybe with Google login only." },
+    { speaker: "Akash", text: "Decided: Ankit owns the dashboard read-model spec, due Tuesday." },
+  ],
+};
+const DEFAULT_CLIP = DEMO_CLIPS["Hackathon submission"];
 
 export default function LivePage() {
   const [projects, setProjects] = useState<ProjectOption[]>([]);
@@ -203,7 +213,9 @@ export default function LivePage() {
     setLines([]);
     setCards([]);
     setStatus("Playing demo clip…");
-    for (const line of DEMO_CLIP) {
+    const name = projects.find((p) => p.id === projectId)?.name || "";
+    const clip = DEMO_CLIPS[name] ?? DEFAULT_CLIP;
+    for (const line of clip) {
       addLine(line.speaker, line.text);
       await sendForCheckBlocking(line.text);
       await new Promise((r) => setTimeout(r, 1200));
