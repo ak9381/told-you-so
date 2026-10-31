@@ -1,15 +1,15 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { usePathname, useRouter } from "next/navigation";
+import { usePathname } from "next/navigation";
 
 interface Project {
   id: string;
   name: string;
 }
 
-// Tools nav — now lives in the sticky top header (per the design image).
-// "Live" is the home workspace (the live listener folded into the home page).
+// Tools nav — lives in the sticky top header (per the design image).
+// "Home" is the live workspace (the live listener folded into the home page).
 const TOOLS = [
   { href: "/", label: "Home" },
   { href: "/ledger", label: "Tasks" },
@@ -21,8 +21,11 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
   const [projects, setProjects] = useState<Project[]>([]);
   const [email, setEmail] = useState("");
   const [activeProject, setActiveProject] = useState<string | null>(null);
+  const [open, setOpen] = useState(false);
+  const [creating, setCreating] = useState(false);
+  const [newName, setNewName] = useState("");
+  const [createMsg, setCreateMsg] = useState("");
   const pathname = usePathname();
-  const router = useRouter();
 
   useEffect(() => {
     fetch("/api/projects")
@@ -42,12 +45,41 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
 
   const handle = (email.split("@")[0] || "you").replace(/\+.*$/, "");
   const initials = handle.slice(0, 2).toUpperCase();
+  const currentId = activeProject || projects[0]?.id || null;
+  const currentProjectName =
+    projects.find((p) => p.id === currentId)?.name || "Select project";
 
   async function logout() {
     try {
       await fetch("/api/auth/logout", { method: "POST" });
     } catch {}
     window.location.href = "/welcome";
+  }
+
+  // Full navigation so the home page re-reads ?project= and actually switches.
+  function switchProject(id: string) {
+    window.location.href = `/?project=${id}`;
+  }
+
+  async function createProject() {
+    const name = newName.trim();
+    if (!name) return;
+    setCreateMsg("");
+    try {
+      const r = await fetch("/api/projects", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name }),
+      });
+      const d = await r.json();
+      if (!r.ok || !d.project) {
+        setCreateMsg(d.error || "Could not create the project");
+        return;
+      }
+      window.location.href = `/?project=${d.project.id}`;
+    } catch {
+      setCreateMsg("Could not create the project");
+    }
   }
 
   return (
@@ -61,30 +93,90 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
           </div>
         </a>
 
-        <div className="px-6 pt-2 pb-2 text-xs uppercase tracking-wider text-[#9B9690] border-t border-[#EFEEEA]">
-          Projects
-        </div>
-        <div className="px-3 space-y-0.5 overflow-y-auto flex-1">
-          {projects.map((p) => {
-            const active = activeProject === p.id;
-            return (
-              <button
-                key={p.id}
-                onClick={() => router.push(`/?project=${p.id}`)}
-                className={`w-full text-left flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm transition-colors ${
-                  active
-                    ? "bg-[#F1F0EC] text-[#1A1715] font-medium"
-                    : "text-[#6B6560] hover:bg-[#F7F6F3]"
-                }`}
-              >
+        {/* Project switcher */}
+        <div className="px-4 pt-3 pb-3 border-t border-[#EFEEEA]">
+          <div className="text-xs uppercase tracking-wider text-[#9B9690] mb-2">Project</div>
+          <div className="relative">
+            <button
+              onClick={() => {
+                setOpen((o) => !o);
+                setCreating(false);
+                setCreateMsg("");
+              }}
+              className="w-full flex items-center justify-between gap-2 rounded-lg border border-[#E7E5E0] bg-white/70 px-3 py-2 text-sm text-[#1A1715] hover:border-[#C9C6BE] transition-colors"
+            >
+              <span className="truncate flex items-center gap-2">
                 <span className="text-[#9B9690]">▪</span>
-                <span className="truncate">{p.name}</span>
-              </button>
-            );
-          })}
+                {currentProjectName}
+              </span>
+              <span className="text-[#9B9690] text-xs">▾</span>
+            </button>
+
+            {open && (
+              <>
+                <div className="fixed inset-0 z-30" onClick={() => setOpen(false)} />
+                <div className="absolute z-40 mt-1 w-full rounded-xl border border-[#E7E5E0] bg-white shadow-lg overflow-hidden">
+                  <div className="max-h-60 overflow-y-auto py-1">
+                    {projects.length === 0 && (
+                      <div className="px-3 py-2 text-xs text-[#9B9690]">No projects yet — create one below.</div>
+                    )}
+                    {projects.map((p) => {
+                      const active = currentId === p.id;
+                      return (
+                        <button
+                          key={p.id}
+                          onClick={() => switchProject(p.id)}
+                          className={`w-full text-left flex items-center gap-2 px-3 py-2 text-sm transition-colors ${
+                            active
+                              ? "bg-[#F1F0EC] text-[#1A1715] font-medium"
+                              : "text-[#6B6560] hover:bg-[#F7F6F3]"
+                          }`}
+                        >
+                          <span className="text-[#9B9690]">▪</span>
+                          <span className="truncate">{p.name}</span>
+                          {active && <span className="ml-auto text-[#1C7A4A] text-xs">✓</span>}
+                        </button>
+                      );
+                    })}
+                  </div>
+                  <div className="border-t border-[#EFEEEA] p-2">
+                    {!creating ? (
+                      <button
+                        onClick={() => setCreating(true)}
+                        className="w-full text-left rounded-lg px-3 py-2 text-sm font-medium text-[#1A1715] hover:bg-[#F7F6F3] transition-colors"
+                      >
+                        + Create project
+                      </button>
+                    ) : (
+                      <div className="flex items-center gap-1.5">
+                        <input
+                          autoFocus
+                          value={newName}
+                          onChange={(e) => setNewName(e.target.value)}
+                          onKeyDown={(e) => {
+                            if (e.key === "Enter") createProject();
+                          }}
+                          placeholder="Project name"
+                          className="flex-1 min-w-0 rounded-lg border border-[#E7E5E0] px-2.5 py-1.5 text-sm text-[#1A1715] focus:outline-none focus:border-[#B9B6AE]"
+                        />
+                        <button
+                          onClick={createProject}
+                          disabled={!newName.trim()}
+                          className="shrink-0 rounded-lg bg-[#1C1C1E] text-white px-3 py-1.5 text-xs font-medium hover:bg-[#333338] disabled:opacity-50 transition-colors"
+                        >
+                          Add
+                        </button>
+                      </div>
+                    )}
+                    {createMsg && <p className="text-xs text-[#C0392B] mt-1.5 px-1">{createMsg}</p>}
+                  </div>
+                </div>
+              </>
+            )}
+          </div>
         </div>
 
-        <div className="p-4 border-t border-[#EFEEEA]">
+        <div className="mt-auto p-4 border-t border-[#EFEEEA]">
           <div className="flex items-center gap-3 mb-2">
             <div className="w-8 h-8 rounded-full bg-[#ECEAE5] flex items-center justify-center text-xs font-semibold text-[#6B6560]">
               {initials}
