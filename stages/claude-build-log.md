@@ -30,8 +30,23 @@ Flags live in `src/lib/flags.ts`; enable by setting the env var to `true` in `.d
 - **#2 Fintech recon project** (`FLAG_FINTECH`): new "Fintech recon dashboard" project seeded (`src/lib/seed-fintech.ts`) with 3 meetings (Postgres/ACID 24 Oct, webhooks>polling 27 Oct, Clerk 29 Oct) using topics `ledger_database`/`settlement_updates_sync`/`auth_provider`; existing projects untouched. Extractor maps Mongo/Postgres→ledger_database, polling/webhooks→settlement_updates_sync, Clerk/JWT→auth_provider. live-check keyword gate gains architecture words. Per-project demo clips on /live (fintech = Ankit meeting-4). `demo/whatsapp-fintech-demo.txt` added. Flag off hides the project from /api/projects (= v1-working). Verified via direct run: Mongo contradicts Postgres, polling contradicts webhooks, "Clerk + Google login only" is a refinement. TODO: pre-cache Gemini responses for the clip/.txt (stage-9d §4.5) — deferred to hardening.
 - **#3 Polite cards** (`NEXT_PUBLIC_FLAG_POLITE_CARDS`): with the flag on, objection cards lead with "Heads up" + "On <Mon DD> you decided <topic>, and this now conflicts — here's the receipt:" (date from the decision's meeting). "Told You So" stays the brand/masthead. Flag off = the red "OBJECTION!" card unchanged. Agent now carries the decision date (decidedAt). Verified: decidedAt resolves to Oct 24 for the fintech Postgres decision. Visual pending browser re-login.
 
-## ⚠️ Known issues to harden (stage 9)
-- **Session expiry:** the 1-hour Supabase access token lapses and the middleware refresh did not recover it (redirected to /login). Judges/users get logged out after ~1h. Fix the refresh flow (or lengthen the session) before submission.
+- **#4 Verdict logging** (`FLAG_LOG_VERDICTS`): `verdict_logs` table (migration 003); `/api/log-verdict` writes a labelled row on every tray verdict click (no-op unless flag on). The labels-loop. Verified table applied.
+- **#5 Eval cases**: +4 fintech cases (2 conflicts: Mongo/polling; 2 tricky refinements: read-replicas, Google-login-only). Now 18 cases, 100%/100%. Eval page counts are dynamic.
+
+## Session fix (SSR)
+Replaced the custom cookie auth with `@supabase/ssr`: middleware `updateSession()` refreshes the token on every request; login uses `createBrowserSupabase()`; routes read the user via `getRequestUser()`. **Requires a fresh login once** (old cookies are ignored). Test by setting the Supabase JWT lifetime to 5 min.
+
+## Landing page + deploy
+- Public SEO landing at `/welcome` (Bento, on-brand), linked from login.
+- README written (7 must-builds mapped, architecture, agent, live mode, run/deploy, built-by-voice).
+- Demo flags turned ON in `.env.local`/`.dev.vars` (FLAG_CONFIDENCE, FLAG_FINTECH, FLAG_LOG_VERDICTS, NEXT_PUBLIC_FLAG_POLITE_CARDS). `scripts/deploy.sh` now rebuilds first (bakes NEXT_PUBLIC flags) and sets the flag secrets.
+
+## ⚠️ Still needed before submission
+- **Redeploy** (`bash scripts/deploy.sh`) — the live site is still the stages-1–5 build; everything since is local only. **This is the critical gap.**
+- **Judge account**: create `akashkraju218+judge@gmail.com` in Supabase (already in ALLOWED_EMAILS).
+- **Demo-response caching** (stage-9d §4.5) — deferred; the 60/day cap should cover a careful recording.
+- **Video** (stage-9d plan) — Akash records.
+- Note in submission: reminder emails go to ak9381@nyu.edu (Resend account owner).
 
 ## Landing page — parked until backend is done (user request)
 Build order: **all backend/core (stages 6–9) first, then the landing page.**

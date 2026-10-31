@@ -5,7 +5,10 @@
 set -eu
 cd "$(dirname "$0")/.."
 
-echo "==> Deploying to Cloudflare Workers (OpenNext worker is already built)..."
+echo "==> Building the Worker (fresh bundle; bakes in NEXT_PUBLIC_* flags from .env.local)..."
+npm run build:worker
+
+echo "==> Deploying to Cloudflare Workers..."
 npx wrangler deploy
 
 echo "==> Setting Worker secrets from .dev.vars (values never printed)..."
@@ -15,7 +18,8 @@ for NAME in \
   SUPABASE_URL SUPABASE_ANON_KEY SUPABASE_SERVICE_ROLE_KEY \
   ALLOWED_EMAILS CRON_SECRET \
   NOTION_TOKEN NOTION_DATABASE_ID \
-  RESEND_API_KEY RESEND_OWNER_EMAIL RESEND_FROM; do
+  RESEND_API_KEY RESEND_OWNER_EMAIL RESEND_FROM \
+  FLAG_CONFIDENCE FLAG_FINTECH FLAG_LOG_VERDICTS; do
   v="${!NAME:-}"
   if [ -n "$v" ]; then
     printf '%s' "$v" | npx wrangler secret put "$NAME" >/dev/null && echo "  set $NAME"
