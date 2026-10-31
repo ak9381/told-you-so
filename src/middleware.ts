@@ -3,7 +3,7 @@ import type { NextRequest } from "next/server";
 import { updateSession } from "@/lib/supabase-ssr";
 
 // /api/auth/* handles sign-in itself; cron routes authenticate with CRON_SECRET.
-const PUBLIC_ROUTES = ["/login", "/welcome", "/api/auth", "/api/reminders", "/api/digest"];
+const PUBLIC_ROUTES = ["/login", "/welcome", "/api/auth", "/api/reminders", "/api/digest", "/api/health"];
 
 function isPublicRoute(pathname: string): boolean {
   return PUBLIC_ROUTES.some(
@@ -53,10 +53,13 @@ export async function middleware(request: NextRequest) {
   // Protected routes: refresh the Supabase session on every request (fixes the
   // 1-hour logout), then enforce the allowlist.
   const { response, user } = await updateSession(request);
+  const isApi = pathname.startsWith("/api/");
   if (!user?.email) {
+    if (isApi) return NextResponse.json({ error: "Please sign in again." }, { status: 401 });
     return NextResponse.redirect(new URL("/login", request.url));
   }
   if (!isEmailInAllowlist(user.email)) {
+    if (isApi) return NextResponse.json({ error: "This account is not on the access list." }, { status: 403 });
     return NextResponse.redirect(new URL("/login?error=not_allowed", request.url));
   }
   return response;
