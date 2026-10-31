@@ -14,6 +14,15 @@ async function resolveUserId(request: NextRequest): Promise<string | null> {
   return data.user?.id ?? null;
 }
 
+interface ObjectionVerdict {
+  oldDecisionId: string;
+  oldQuote: string;
+  oldSpeaker?: string;
+  newQuote: string;
+  newSpeaker?: string;
+  verdict: "overrule" | "pivot" | "keep_old" | "flag";
+}
+
 export async function POST(request: NextRequest) {
   try {
     const {
@@ -24,6 +33,7 @@ export async function POST(request: NextRequest) {
       utterances,
       decisions,
       actions,
+      objectionVerdicts,
     } = await request.json();
 
     if (!projectId || !meetingTitle) {
@@ -78,7 +88,8 @@ export async function POST(request: NextRequest) {
       await supabase.from("utterances").insert(utteranceRows);
     }
 
-    // 4. Insert Decisions
+    // 4. Insert Decisions (capture ids so objection verdicts can supersede)
+    const quoteToDecisionId: Record<string, string> = {};
     if (decisions && Array.isArray(decisions) && decisions.length > 0) {
       const decisionRows = decisions.map((d: { topic: string; exact_quote: string; speaker: string; said_at: string }) => ({
         project_id: projectId,
@@ -90,7 +101,50 @@ export async function POST(request: NextRequest) {
         said_at: d.said_at || "",
         status: "active",
       }));
-      await supabase.from("decisions").insert(decisionRows);
+      const { data: inserted } = await supabase
+        .from("decisions")
+        .insert(decisionRows)
+        .select("id, exact_quote");
+      for (const row of inserted ?? []) {
+        quoteToDecisionId[row.exact_quote] = row.id;
+      }
+    }
+
+    // 4b. Apply objection verdicts.
+    if (objectionVerdicts && Array.isArray(objectionVerdicts)) {
+      for (const ov of objectionVerdicts as ObjectionVerdict[]) {
+        if (!ov.verdict) continue;
+        const newDecisionId = quoteToDecisionId[ov.newQuote] ?? null;
+        if (!newDecisionId) continue; // objections table requires both decision ids
+
+        await supabase.from("objections").insert({
+          project_id: projectId,
+          old_decision_id: ov.oldDecisionId,
+          new_decision_id: newDecisionId,
+          old_quote: ov.oldQuote,
+          new_quote: ov.newQuote,
+          old_speaker: ov.oldSpeaker ?? null,
+          new_speaker: ov.newSpeaker ?? null,
+          verdict: ov.verdict,
+        });
+
+        if (ov.verdict === "overrule" || ov.verdict === "pivot") {
+          // the new decision wins; the old one is struck through
+          await supabase
+            .from("decisions")
+            .update({
+              status: ov.verdict === "overrule" ? "overruled" : "superseded",
+              superseded_by: newDecisionId,
+            })
+            .eq("id", ov.oldDecisionId);
+        } else if (ov.verdict === "keep_old") {
+          // the old decision stands; the new one is superseded
+          await supabase
+            .from("decisions")
+            .update({ status: "superseded", superseded_by: ov.oldDecisionId })
+            .eq("id", newDecisionId);
+        }
+      }
     }
 
     // 5. Insert Actions

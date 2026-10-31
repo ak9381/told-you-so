@@ -10,6 +10,22 @@ const VERDICTS = ["overrule", "pivot", "keep_old", "flag"] as const;
 const verdictLabel = (v: string) =>
   v === "keep_old" ? "Keep old" : v.charAt(0).toUpperCase() + v.slice(1);
 
+interface TimelineDecision {
+  id: string;
+  topic: string;
+  exact_quote: string;
+  speaker: string;
+  said_at: string | null;
+  meeting_seq: number;
+  status: string;
+}
+
+function groupByTopic(decisions: TimelineDecision[]) {
+  const map: Record<string, TimelineDecision[]> = {};
+  for (const d of decisions) (map[d.topic] ||= []).push(d);
+  return map;
+}
+
 interface ProjectOption {
   id: string;
   name: string;
@@ -37,6 +53,18 @@ export default function HomePage() {
       })
       .catch(() => {});
   }, []);
+
+  // Load the decision spine whenever the project changes.
+  function loadTimeline(pid: string) {
+    if (!pid || pid.startsWith("proj-")) return;
+    fetch(`/api/timeline?projectId=${pid}`)
+      .then((r) => r.json())
+      .then((d) => setTimeline(d.decisions ?? []))
+      .catch(() => {});
+  }
+  useEffect(() => {
+    loadTimeline(selectedProjectId);
+  }, [selectedProjectId]);
   const [rawInput, setRawInput] = useState<string>("");
   const [isProcessing, setIsProcessing] = useState<boolean>(false);
   const [result, setResult] = useState<ExtractionResult | null>(null);
@@ -54,6 +82,7 @@ export default function HomePage() {
   const [refinements, setRefinements] = useState<Refinement[]>([]);
   const [agentPath, setAgentPath] = useState<string | null>(null);
   const [verdicts, setVerdicts] = useState<Record<number, string>>({});
+  const [timeline, setTimeline] = useState<TimelineDecision[]>([]);
 
   // Auto-named meeting
   const now = new Date();
@@ -137,6 +166,22 @@ export default function HomePage() {
     const selectedDecisions = result.decisions.filter((_, i) => checkedDecisions[i]);
     const selectedActions = result.actions.filter((_, i) => checkedActions[i]);
 
+    // Build verdicts for any objections the user ruled on
+    const objectionVerdicts = objections
+      .map((obj, i) =>
+        verdicts[i]
+          ? {
+              oldDecisionId: obj.old.id,
+              oldQuote: obj.old.quote,
+              oldSpeaker: obj.old.speaker,
+              newQuote: obj.now.quote,
+              newSpeaker: obj.now.speaker,
+              verdict: verdicts[i],
+            }
+          : null
+      )
+      .filter(Boolean);
+
     try {
       const res = await fetch("/api/commit", {
         method: "POST",
@@ -148,11 +193,13 @@ export default function HomePage() {
           rawText: rawInput,
           decisions: selectedDecisions,
           actions: selectedActions,
+          objectionVerdicts,
         }),
       });
 
       if (res.ok) {
         setCommittedStatus("CONFIRMED & RECORDED IN COURT DOCKET");
+        loadTimeline(selectedProjectId);
       } else {
         const body = await res.json().catch(() => ({}));
         setCommittedStatus(`NOT RECORDED — ${body.error || "commit failed"}`);
@@ -585,6 +632,48 @@ export default function HomePage() {
             >
               {isProcessing ? "Sealing Record..." : "Tick & Confirm Record"}
             </button>
+          </div>
+        </section>
+      )}
+      {/* Decision Spine — the project's memory, superseded decisions struck through */}
+      {timeline.length > 0 && (
+        <section className="mb-12 border border-[#DDD3C1] bg-[#FAF7F2] p-6">
+          <h3 className="font-serif text-xl font-bold text-[#1C1917] border-b border-[#DDD3C1] pb-3 mb-4">
+            Decision Spine — {currentProjectName}
+          </h3>
+          <div className="space-y-5">
+            {Object.entries(groupByTopic(timeline)).map(([topic, decs]) => (
+              <div key={topic}>
+                <div className="font-mono text-[10px] uppercase tracking-widest text-[#C0392B] mb-1.5">
+                  {topic}
+                </div>
+                <ul className="space-y-1.5">
+                  {decs.map((d) => {
+                    const struck = d.status !== "active";
+                    return (
+                      <li key={d.id} className="font-mono text-xs flex items-start gap-2">
+                        <span
+                          className={`flex-1 ${
+                            struck ? "line-through text-[#A8A29E]" : "text-[#1C1917]"
+                          }`}
+                        >
+                          &ldquo;{d.exact_quote}&rdquo;{" "}
+                          <span className="text-[#78716C]">
+                            — {d.speaker} · M#{d.meeting_seq}
+                            {d.said_at ? ` · ${d.said_at}` : ""}
+                          </span>
+                        </span>
+                        {struck && (
+                          <span className="text-[9px] font-bold uppercase border border-[#C0392B] text-[#C0392B] px-1 py-0.5 -rotate-3 shrink-0">
+                            {d.status === "overruled" ? "OVERRULED" : "PIVOT"}
+                          </span>
+                        )}
+                      </li>
+                    );
+                  })}
+                </ul>
+              </div>
+            ))}
           </div>
         </section>
       )}
