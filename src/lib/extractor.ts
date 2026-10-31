@@ -157,6 +157,7 @@ Context:
   Example: "Harsh, no wait, I take the video, by Tuesday" -> Owner is "${currentUserName}", original was "Harsh", deadline is next Tuesday.
 - Every decision and action MUST have an exact quote directly matching a substring in the input. If a quote is not in the text, DO NOT invent it.
 - Resolve relative dates to clean descriptive strings (e.g., "Next Tuesday", "Today 11:59 PM IST", "10:30 PM tonight").
+- IMPORTANT: capture statements about deadlines, submission timing, team size, scope, tooling, pricing, or dates as DECISIONS with the matching topic key — even casual ones — because these get checked against earlier agreements. Examples: "deadline is tomorrow morning" -> decision topic "deadline"; "let's submit by midnight" / "submit by 11 PM" -> decision topic "deadline"; "we can be 3" -> decision topic "team-size"; "no need to deploy" -> decision topic "submission"; "old projects are fine" -> decision topic "scope". A statement can be BOTH a decision and an action.
 - Allowed topic keys: ${TOPIC_KEYS.join(", ")}.
 
 Input Text:

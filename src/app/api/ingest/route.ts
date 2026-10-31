@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { parseMeetingInput, InputSourceType } from "@/lib/parser";
 import { extractMeetingItems, ExtractionError } from "@/lib/extractor";
+import { runAgent, type AgentResult } from "@/lib/agent";
 import { createClient } from "@supabase/supabase-js";
 
 // Resolve the signed-in user's real UUID from the auth cookie so the Gemini
@@ -47,12 +48,26 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Conflict-detection agent (MB3): check extracted decisions against memory.
+    let agent: AgentResult | null = null;
+    if (projectId && extraction.decisions.length > 0) {
+      try {
+        agent = await runAgent(extraction.decisions, projectId);
+      } catch (e) {
+        console.error("Agent error:", e);
+      }
+    }
+
     return NextResponse.json({
       ok: true,
       detectedType,
       utterances,
       extraction,
       projectId,
+      objections: agent?.objections ?? [],
+      refinements: agent?.refinements ?? [],
+      trace: agent?.trace ?? [],
+      agentPath: agent?.path ?? null,
     });
   } catch (error) {
     console.error("Ingest error:", error);

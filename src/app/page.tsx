@@ -4,6 +4,11 @@ import { useState, useEffect } from "react";
 import Masthead from "@/components/Masthead";
 import { formatSpokenTokens, TokenPart } from "@/lib/messySpeech";
 import { ExtractionResult, ExtractedDecision, ExtractedAction } from "@/lib/extractor";
+import type { Objection, TraceStep, Refinement } from "@/lib/agent";
+
+const VERDICTS = ["overrule", "pivot", "keep_old", "flag"] as const;
+const verdictLabel = (v: string) =>
+  v === "keep_old" ? "Keep old" : v.charAt(0).toUpperCase() + v.slice(1);
 
 interface ProjectOption {
   id: string;
@@ -43,6 +48,13 @@ export default function HomePage() {
   const [committedStatus, setCommittedStatus] = useState<string | null>(null);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
+  // Agent (MB3) output
+  const [objections, setObjections] = useState<Objection[]>([]);
+  const [trace, setTrace] = useState<TraceStep[]>([]);
+  const [refinements, setRefinements] = useState<Refinement[]>([]);
+  const [agentPath, setAgentPath] = useState<string | null>(null);
+  const [verdicts, setVerdicts] = useState<Record<number, string>>({});
+
   // Auto-named meeting
   const now = new Date();
   const formattedTime = now.toLocaleDateString("en-IN", {
@@ -61,6 +73,11 @@ export default function HomePage() {
     setIsProcessing(true);
     setCommittedStatus(null);
     setErrorMsg(null);
+    setObjections([]);
+    setTrace([]);
+    setRefinements([]);
+    setAgentPath(null);
+    setVerdicts({});
 
     // Format tokens for "What you said" column
     const formatted = formatSpokenTokens(rawInput);
@@ -88,6 +105,10 @@ export default function HomePage() {
       }
       if (data.extraction) {
         setResult(data.extraction);
+        setObjections(data.objections ?? []);
+        setTrace(data.trace ?? []);
+        setRefinements(data.refinements ?? []);
+        setAgentPath(data.agentPath ?? null);
         // Pre-tick all items in the tray by default
         const decMap: Record<number, boolean> = {};
         data.extraction.decisions.forEach((_: unknown, i: number) => {
@@ -387,6 +408,100 @@ export default function HomePage() {
               </div>
             </div>
           </div>
+        </section>
+      )}
+
+      {/* OBJECTION! cards (MB3) */}
+      {objections.length > 0 && (
+        <section className="mb-8 space-y-4">
+          {objections.map((obj, i) => (
+            <div key={i} className="border-2 border-[#C0392B] bg-[#FADBD8]/50 p-5 shadow-sm">
+              <div className="flex items-center justify-between border-b-2 border-[#C0392B] pb-2 mb-4">
+                <span className="font-serif text-3xl font-black text-[#C0392B] tracking-tight -rotate-1">
+                  OBJECTION!
+                </span>
+                <span className="font-mono text-[10px] uppercase tracking-widest text-[#962D22] border border-[#C0392B] px-2 py-0.5">
+                  {obj.topic}
+                </span>
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 font-mono text-xs">
+                <div className="border-l-2 border-[#78716C] pl-3">
+                  <div className="uppercase text-[10px] text-[#78716C] font-bold mb-1">
+                    Then — Meeting #{obj.old.meeting_seq}
+                    {obj.old.said_at ? ` · ${obj.old.said_at}` : ""}
+                  </div>
+                  <blockquote className="italic text-[#44403C]">&ldquo;{obj.old.quote}&rdquo;</blockquote>
+                  <div className="text-[#78716C] mt-1">— {obj.old.speaker}</div>
+                </div>
+                <div className="border-l-2 border-[#C0392B] pl-3">
+                  <div className="uppercase text-[10px] text-[#C0392B] font-bold mb-1">Now</div>
+                  <blockquote className="italic text-[#1C1917]">&ldquo;{obj.now.quote}&rdquo;</blockquote>
+                  <div className="text-[#78716C] mt-1">— {obj.now.speaker}</div>
+                </div>
+              </div>
+              <div className="mt-4 flex flex-wrap items-center gap-2">
+                {VERDICTS.map((vd) => (
+                  <button
+                    key={vd}
+                    onClick={() => setVerdicts((p) => ({ ...p, [i]: vd }))}
+                    className={`font-mono text-[11px] uppercase tracking-wider px-3 py-1.5 border transition-colors ${
+                      verdicts[i] === vd
+                        ? "bg-[#1C1917] text-[#F4EFE6] border-[#1C1917]"
+                        : "bg-[#F4EFE6] text-[#44403C] border-[#DDD3C1] hover:border-[#1C1917]"
+                    }`}
+                  >
+                    {verdictLabel(vd)}
+                  </button>
+                ))}
+                {verdicts[i] && (
+                  <span className="font-mono text-[10px] text-[#C0392B] self-center">
+                    ✓ {verdictLabel(verdicts[i])} selected
+                  </span>
+                )}
+              </div>
+            </div>
+          ))}
+        </section>
+      )}
+
+      {/* Refinement chips — proof of no false positives */}
+      {refinements.length > 0 && (
+        <section className="mb-8 flex flex-wrap gap-2">
+          {refinements.map((r, i) => (
+            <div
+              key={i}
+              className="inline-flex items-center gap-2 bg-[#E8E1D5] border border-[#DDD3C1] px-3 py-1.5 font-mono text-[11px]"
+            >
+              <span className="uppercase text-[10px] text-[#78716C]">refinement · not flagged</span>
+              <span className="text-[#1C1917]">&ldquo;{r.quote}&rdquo;</span>
+            </div>
+          ))}
+        </section>
+      )}
+
+      {/* Reasoning trail (the agent thinking out loud) */}
+      {trace.length > 0 && (
+        <section className="mb-8 border border-[#DDD3C1] bg-[#FAF7F2] p-5">
+          <div className="flex items-center justify-between border-b border-[#DDD3C1] pb-2 mb-3">
+            <h4 className="font-serif text-lg font-bold text-[#1C1917]">Reasoning Trail</h4>
+            {agentPath && (
+              <span className="font-mono text-[10px] uppercase tracking-widest px-2 py-0.5 border border-[#DDD3C1] text-[#78716C]">
+                path: {agentPath}
+              </span>
+            )}
+          </div>
+          <ol className="space-y-2 font-mono text-xs">
+            {trace.map((t, i) => (
+              <li key={i} className="flex gap-3">
+                <span className="text-[#C0392B] font-bold">{t.step}.</span>
+                <div>
+                  <span className="uppercase font-bold text-[#1C1917]">{t.tool}</span>
+                  <span className="text-[#78716C]"> — {t.input} → {t.output}</span>
+                  <div className="text-[#44403C] italic">{t.reasoning}</div>
+                </div>
+              </li>
+            ))}
+          </ol>
         </section>
       )}
 
