@@ -1,15 +1,28 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createServerClient } from "@/lib/supabase";
 import { createTask, updateNotionTaskStatus } from "@/lib/trackers";
+import { requireUser, readJson, canAccessProject, canAccessAction, isUuid, jsonError } from "@/lib/api-guard";
 
 // Supabase returns an embedded relation as an object or a 1-element array.
 function one<T>(v: T | T[] | null | undefined): T | undefined {
   return Array.isArray(v) ? v[0] : v ?? undefined;
 }
 
+// IDs of projects the user may see (own + legacy unowned seed rows).
+async function myProjectIds(supabase: ReturnType<typeof createServerClient>, userId: string) {
+  const { data } = await supabase.from("projects").select("id").or(`user_id.eq.${userId},user_id.is.null`);
+  return (data ?? []).map((p) => p.id as string);
+}
+
 export async function GET(request: NextRequest) {
+  const auth = await requireUser(request);
+  if (auth.error) return auth.error;
   const supabase = createServerClient();
   const projectId = new URL(request.url).searchParams.get("projectId");
+  if (projectId && !(await canAccessProject(supabase, projectId, auth.user.id))) {
+    return jsonError("Project not found.", 404);
+  }
+  const allowed = projectId ? [projectId] : await myProjectIds(supabase, auth.user.id);
   let aq = supabase
     .from("actions")
     .select(
@@ -17,13 +30,21 @@ export async function GET(request: NextRequest) {
     )
     .order("due_date", { ascending: false, nullsFirst: false })
     .order("created_at", { ascending: false });
-  if (projectId) aq = aq.eq("project_id", projectId);
-  const { data: actions } = await aq;
-  const { data: notionLog } = await supabase
-    .from("notion_log")
-    .select("id, status, error, notion_page_id, action_id, created_at")
-    .order("created_at", { ascending: false })
-    .limit(50);
+  aq = aq.in("project_id", allowed.length ? allowed : ["00000000-0000-0000-0000-000000000000"]);
+  const { data: actions, error: actErr } = await aq;
+  if (actErr) {
+    console.error("ledger fetch error:", actErr.message);
+    return jsonError("Could not load tasks. Please refresh.", 500);
+  }
+  const actionIds = (actions ?? []).map((a) => a.id as string);
+  const { data: notionLog } = actionIds.length
+    ? await supabase
+        .from("notion_log")
+        .select("id, status, error, notion_page_id, action_id, created_at")
+        .in("action_id", actionIds.slice(0, 500))
+        .order("created_at", { ascending: false })
+        .limit(50)
+    : { data: [] };
   const dbId = process.env.NOTION_DATABASE_ID;
   const notionDbUrl = dbId ? `https://www.notion.so/${dbId.replace(/-/g, "")}` : null;
   return NextResponse.json({
@@ -35,15 +56,22 @@ export async function GET(request: NextRequest) {
 
 // Update an action's status (syncs to Notion) OR file it to Notion on demand.
 export async function POST(request: NextRequest) {
-  const { actionId, status, fileNotion, owner, ownerId } = await request.json();
-  if (!actionId) return NextResponse.json({ error: "actionId required" }, { status: 400 });
+  const auth = await requireUser(request);
+  if (auth.error) return auth.error;
+  const parsed = await readJson(request, 20_000);
+  if (parsed.error) return parsed.error;
+  const { actionId, status, fileNotion, owner, ownerId } = parsed.body as Record<string, unknown>;
+  if (!isUuid(actionId)) return NextResponse.json({ error: "actionId required" }, { status: 400 });
   const supabase = createServerClient();
+  if (!(await canAccessAction(supabase, actionId, auth.user.id))) {
+    return jsonError("Task not found.", 404);
+  }
 
   // Reassign the task owner.
   if (typeof owner === "string") {
     const { error } = await supabase
       .from("actions")
-      .update({ owner, owner_id: ownerId ?? null })
+      .update({ owner: owner.slice(0, 120), owner_id: isUuid(ownerId) ? ownerId : null })
       .eq("id", actionId);
     if (error) return NextResponse.json({ error: error.message }, { status: 500 });
     return NextResponse.json({ ok: true });
@@ -85,7 +113,7 @@ export async function POST(request: NextRequest) {
   }
 
   // Status update (+ real-time Notion sync if the task is filed).
-  if (!["open", "done", "blocked"].includes(status)) {
+  if (typeof status !== "string" || !["open", "done", "blocked"].includes(status)) {
     return NextResponse.json({ error: "bad status" }, { status: 400 });
   }
   const { error } = await supabase.from("actions").update({ status }).eq("id", actionId);
@@ -109,8 +137,13 @@ export async function POST(request: NextRequest) {
 // Remove a task.
 export async function DELETE(request: NextRequest) {
   const actionId = new URL(request.url).searchParams.get("actionId");
-  if (!actionId) return NextResponse.json({ error: "actionId required" }, { status: 400 });
+  const auth = await requireUser(request);
+  if (auth.error) return auth.error;
+  if (!isUuid(actionId)) return NextResponse.json({ error: "actionId required" }, { status: 400 });
   const supabase = createServerClient();
+  if (!(await canAccessAction(supabase, actionId, auth.user.id))) {
+    return jsonError("Task not found.", 404);
+  }
   // Clear rows that reference this action first (avoid FK restrictions).
   await supabase.from("notion_log").delete().eq("action_id", actionId);
   await supabase.from("outbox").delete().eq("action_id", actionId);
