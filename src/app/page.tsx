@@ -11,6 +11,11 @@ const VERDICTS = ["overrule", "pivot", "keep_old", "flag"] as const;
 const verdictLabel = (v: string) =>
   v === "keep_old" ? "Keep old" : v.charAt(0).toUpperCase() + v.slice(1);
 
+// #3 polite cards flag (client-readable) + a short date like "Oct 24".
+const POLITE_CARDS = process.env.NEXT_PUBLIC_FLAG_POLITE_CARDS === "true";
+const shortDate = (iso?: string | null) =>
+  iso ? new Date(iso).toLocaleDateString("en-US", { month: "short", day: "numeric" }) : "";
+
 interface TimelineDecision {
   id: string;
   topic: string;
@@ -483,8 +488,14 @@ export default function HomePage() {
           {objections.map((obj, i) => (
             <div key={i} className="border-2 border-[#C0392B] bg-[#FADBD8]/50 p-5 shadow-sm">
               <div className="flex items-center justify-between border-b-2 border-[#C0392B] pb-2 mb-4">
-                <span className="font-serif text-3xl font-black text-[#C0392B] tracking-tight -rotate-1">
-                  OBJECTION!
+                <span
+                  className={
+                    POLITE_CARDS
+                      ? "font-serif text-xl font-bold text-[#1C1917]"
+                      : "font-serif text-3xl font-black text-[#C0392B] tracking-tight -rotate-1"
+                  }
+                >
+                  {POLITE_CARDS ? "Heads up" : "OBJECTION!"}
                 </span>
                 <span className="flex items-center gap-2">
                   {typeof obj.confidence === "number" && (
@@ -497,6 +508,12 @@ export default function HomePage() {
                   </span>
                 </span>
               </div>
+              {POLITE_CARDS && (
+                <p className="font-serif text-sm text-[#1C1917] mb-3">
+                  On {shortDate(obj.old.decidedAt) || `meeting #${obj.old.meeting_seq}`} you decided{" "}
+                  <span className="font-bold">{obj.topic.replace(/_/g, " ")}</span>, and this now conflicts with it — here&rsquo;s the receipt:
+                </p>
+              )}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4 font-mono text-xs">
                 <div className="border-l-2 border-[#78716C] pl-3">
                   <div className="uppercase text-[10px] text-[#78716C] font-bold mb-1">

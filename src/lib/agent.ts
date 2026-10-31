@@ -19,6 +19,7 @@ export interface MemoryDecision {
   speaker: string;
   said_at: string | null;
   meeting_seq: number;
+  created_at?: string;
 }
 
 export interface TraceStep {
@@ -37,6 +38,7 @@ export interface Objection {
     speaker: string;
     meeting_seq: number;
     said_at: string | null;
+    decidedAt?: string | null; // the date the old decision was made (#3)
   };
   now: { quote: string; speaker: string; summary: string };
   confidence?: number;
@@ -74,7 +76,7 @@ async function searchMemory(
   const supabase = createServerClient();
   const { data } = await supabase
     .from("decisions")
-    .select("id, topic, exact_quote, speaker, said_at, meeting_seq")
+    .select("id, topic, exact_quote, speaker, said_at, meeting_seq, created_at")
     .eq("project_id", projectId)
     .eq("topic", topic)
     .eq("status", "active")
@@ -91,7 +93,7 @@ export async function getProjectMemory(
   const supabase = createServerClient();
   const { data } = await supabase
     .from("decisions")
-    .select("id, topic, exact_quote, speaker, said_at, meeting_seq")
+    .select("id, topic, exact_quote, speaker, said_at, meeting_seq, created_at")
     .eq("project_id", projectId)
     .eq("status", "active")
     .is("superseded_by", null)
@@ -272,6 +274,7 @@ export async function runAgent(
             speaker: prior.speaker,
             meeting_seq: prior.meeting_seq,
             said_at: prior.said_at,
+            decidedAt: prior.created_at ?? null,
           },
           now: {
             quote: dec.exact_quote,
