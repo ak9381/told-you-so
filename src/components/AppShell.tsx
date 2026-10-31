@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { usePathname } from "next/navigation";
 import Link from "next/link";
+import { fetchProjectsClient, invalidateProjectsCache } from "@/lib/client-cache";
 
 interface Project {
   id: string;
@@ -28,16 +29,15 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
 
   useEffect(() => {
-    fetch("/api/projects")
-      .then((r) => r.json())
-      .then((d) => setProjects(d.projects ?? []))
-      .catch((e) => console.error("projects request failed:", e));
-    // Read the user from the server (do NOT call auth.getUser() client-side —
-    // it would trigger a token refresh that conflicts with the middleware's).
-    fetch("/api/me")
-      .then((r) => r.json())
-      .then((d) => setEmail(d.email ?? ""))
-      .catch((e) => console.error("me request failed:", e));
+    Promise.all([
+      fetchProjectsClient()
+        .then((d) => setProjects(d.projects ?? []))
+        .catch((e) => console.error("projects request failed:", e)),
+      fetch("/api/me")
+        .then((r) => r.json())
+        .then((d) => setEmail(d.email ?? ""))
+        .catch((e) => console.error("me request failed:", e)),
+    ]);
     // Selected project is global: URL ?project= wins (deep links), else the
     // last choice from localStorage. Keep them in sync.
     try {
@@ -93,6 +93,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
         setCreateMsg(d.error || "Could not create the project");
         return;
       }
+      invalidateProjectsCache();
       try {
         localStorage.setItem("tys_project", d.project.id);
       } catch {

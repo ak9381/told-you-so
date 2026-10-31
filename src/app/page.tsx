@@ -3,6 +3,7 @@
 import { DEMO_CLIPS, clipTranscript } from "@/lib/demo-clips";
 import { useState, useEffect, useRef, useCallback } from "react";
 import AppShell from "@/components/AppShell";
+import { fetchProjectsClient } from "@/lib/client-cache";
 import { Card, SectionTitle, Chip, PrimaryButton, SecondaryButton } from "@/components/ui";
 import { formatSpokenTokens, TokenPart } from "@/lib/messySpeech";
 import { ExtractionResult, ExtractedDecision, ExtractedAction } from "@/lib/extractor";
@@ -416,7 +417,21 @@ export default function HomePage() {
     setMicOn(false);
   }
 
-  // Load real projects; honour a ?project=<id> coming from the sidebar.
+  const lastTimelinePid = useRef<string | null>(null);
+
+  const loadTimeline = useCallback((pid: string) => {
+    if (!pid || pid.startsWith("proj-") || lastTimelinePid.current === pid) return;
+    lastTimelinePid.current = pid;
+    fetch(`/api/timeline?projectId=${pid}`)
+      .then((r) => r.json())
+      .then((d) => setTimeline(d.decisions ?? []))
+      .catch((e) => {
+        lastTimelinePid.current = null;
+        console.error("timeline request failed:", e);
+      });
+  }, []);
+
+  // Parallel initial bootstrap: fetch projects and timeline simultaneously with Promise.all
   useEffect(() => {
     let urlProject: string | null = null;
     try {
@@ -426,32 +441,51 @@ export default function HomePage() {
     } catch {
       // storage/URL/scroll unavailable (e.g. private mode) — safe to use defaults
     }
-    fetch("/api/projects")
-      .then((r) => r.json())
+
+    const initialPid = urlProject && !urlProject.startsWith("proj-") ? urlProject : null;
+    const timelinePromise = initialPid
+      ? (() => {
+          lastTimelinePid.current = initialPid;
+          return fetch(`/api/timeline?projectId=${initialPid}`)
+            .then((r) => r.json())
+            .then((d) => setTimeline(d.decisions ?? []))
+            .catch((e) => {
+              lastTimelinePid.current = null;
+              console.error("timeline request failed:", e);
+            });
+        })()
+      : Promise.resolve(null);
+
+    const projectsPromise = fetchProjectsClient()
       .then((d) => {
         if (d.projects && d.projects.length > 0) {
           setProjects(d.projects);
           const match = urlProject && d.projects.find((p: ProjectOption) => p.id === urlProject);
-          setSelectedProjectId(match ? (urlProject as string) : d.projects[0].id);
+          const resolvedId = match ? (urlProject as string) : d.projects[0].id;
+          setSelectedProjectId(resolvedId);
+          return resolvedId;
         }
+        return null;
       })
       .catch((e) => {
         console.error("projects load failed:", e);
         setErrorMsg("Couldn't load your projects. Check your connection and refresh.");
+        return null;
       })
       .finally(() => setProjectsLoaded(true));
-  }, []);
 
-  function loadTimeline(pid: string) {
-    if (!pid || pid.startsWith("proj-")) return;
-    fetch(`/api/timeline?projectId=${pid}`)
-      .then((r) => r.json())
-      .then((d) => setTimeline(d.decisions ?? []))
-      .catch((e) => console.error("timeline request failed:", e));
-  }
+    Promise.all([projectsPromise, timelinePromise]).then(([resolvedId]) => {
+      if (resolvedId && !initialPid && !resolvedId.startsWith("proj-")) {
+        loadTimeline(resolvedId);
+      }
+    });
+  }, [loadTimeline]);
+
   useEffect(() => {
-    loadTimeline(selectedProjectId);
-  }, [selectedProjectId]);
+    if (selectedProjectId && selectedProjectId !== lastTimelinePid.current) {
+      loadTimeline(selectedProjectId);
+    }
+  }, [selectedProjectId, loadTimeline]);
 
   const now = new Date();
   const formattedTime = now.toLocaleDateString("en-IN", {

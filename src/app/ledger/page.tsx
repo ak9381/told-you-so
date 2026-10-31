@@ -72,7 +72,7 @@ export default function LedgerPage() {
       // storage/URL/scroll unavailable (e.g. private mode) — safe to use defaults
     }
     const url = pid ? `/api/ledger?projectId=${pid}` : "/api/ledger";
-    fetch(url)
+    const ledgerPromise = fetch(url)
       .then((r) => r.json())
       .then((d) => {
         setActions(d.actions ?? []);
@@ -82,21 +82,25 @@ export default function LedgerPage() {
       .catch((e) => {
         console.error("ledger request failed:", e);
         setMsg("Couldn't load tasks. Refresh to try again.");
-      })
-      .finally(() => setLoading(false));
+      });
+
+    const peoplePromise = pid
+      ? fetch(`/api/people?projectId=${encodeURIComponent(pid)}`)
+          .then((r) => r.json())
+          .then((d) => setPeople(d.people ?? []))
+          .catch((e) => {
+            console.error("team load failed:", e);
+            setMsg("Couldn't load team members. Refresh to try again.");
+          })
+      : Promise.resolve(null);
+
+    Promise.all([ledgerPromise, peoplePromise]).finally(() => {
+      if (!silent) setLoading(false);
+    });
   }, []);
+
   useEffect(() => {
     load();
-    const pid = currentProjectId();
-    if (pid) {
-      fetch(`/api/people?projectId=${encodeURIComponent(pid)}`)
-        .then((r) => r.json())
-        .then((d) => setPeople(d.people ?? []))
-        .catch((e) => {
-          console.error("team load failed:", e);
-          setMsg("Couldn't load team members. Refresh to try again.");
-        });
-    }
   }, [load]);
 
   async function addMember() {
