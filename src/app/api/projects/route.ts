@@ -6,8 +6,7 @@ import { requireUser, readJson } from "@/lib/api-guard";
 
 // Returns the projects that belong to the logged-in user (with real UUIDs) so the
 // UI can scope meetings correctly. Scoped per-user so the dropdown only shows
-// "your" projects; falls back to all if the user can't be resolved (never break
-// the sidebar).
+// "your" projects. No user → 401 (requireUser); never a fallback to all projects.
 export async function GET(request: NextRequest) {
   try {
     const auth = await requireUser(request);
