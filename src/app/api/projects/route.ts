@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createServerClient } from "@/lib/supabase";
 import { flags } from "@/lib/flags";
 import { requireUser, readJson } from "@/lib/api-guard";
+import { logActivity } from "@/lib/activity";
 
 // Returns the projects that belong to the logged-in user (with real UUIDs) so the
 // UI can scope meetings correctly. Scoped per-user so the dropdown only shows
@@ -54,6 +55,13 @@ export async function POST(request: NextRequest) {
       .select("id, name")
       .single();
     if (error) throw error;
+    await logActivity({
+      userId,
+      projectId: data.id,
+      kind: "project_created",
+      summary: `Created project "${data.name}"`,
+      data: { projectId: data.id, name: data.name },
+    });
     return NextResponse.json({ project: data });
   } catch (e) {
     log.error("project create error:", e);

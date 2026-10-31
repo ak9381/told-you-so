@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createServerClient } from "@/lib/supabase";
 import { createTask, updateNotionTaskStatus, updateNotionTaskOwner } from "@/lib/trackers";
 import { requireUser, readJson, canAccessProject, canAccessAction, isUuid, jsonError } from "@/lib/api-guard";
+import { logActivity } from "@/lib/activity";
 
 // Supabase returns an embedded relation as an object or a 1-element array.
 function one<T>(v: T | T[] | null | undefined): T | undefined {
@@ -82,7 +83,7 @@ export async function POST(request: NextRequest) {
       .from("actions")
       .update({ owner: owner.slice(0, 120), owner_id: isUuid(ownerId) ? ownerId : null })
       .eq("id", actionId)
-      .select("notion_page_id")
+      .select("project_id, notion_page_id")
       .maybeSingle();
     if (error) return NextResponse.json({ error: error.message }, { status: 500 });
     // B5: keep the Notion page's Owner in sync (best-effort, reported back).
@@ -95,6 +96,13 @@ export async function POST(request: NextRequest) {
         await supabase.from("notion_log").insert({ action_id: actionId, notion_page_id: updated.notion_page_id, status: "failed", error: `owner sync: ${r.error}` });
       }
     }
+    await logActivity({
+      userId: auth.user.id,
+      projectId: updated?.project_id,
+      kind: "task_reassigned",
+      summary: `Reassigned task to ${owner.slice(0, 120)}`,
+      data: { actionId, owner: owner.slice(0, 120) },
+    });
     return NextResponse.json({ ok: true, notionSynced });
   }
 
@@ -142,7 +150,7 @@ export async function POST(request: NextRequest) {
 
   const { data: act } = await supabase
     .from("actions")
-    .select("notion_page_id")
+    .select("project_id, notion_page_id")
     .eq("id", actionId)
     .maybeSingle();
   let notionSynced = false;
@@ -152,6 +160,13 @@ export async function POST(request: NextRequest) {
     notionSynced = up.ok;
     notionError = up.error ?? null;
   }
+  await logActivity({
+    userId: auth.user.id,
+    projectId: act?.project_id,
+    kind: "task_status",
+    summary: `Changed task status to ${status}`,
+    data: { actionId, status },
+  });
   return NextResponse.json({ ok: true, notionSynced, notionError });
 }
 
@@ -165,10 +180,18 @@ export async function DELETE(request: NextRequest) {
   if (!(await canAccessAction(supabase, actionId, auth.user.id))) {
     return jsonError("Task not found.", 404);
   }
+  const { data: act } = await supabase.from("actions").select("project_id, title").eq("id", actionId).maybeSingle();
   // Clear rows that reference this action first (avoid FK restrictions).
   await supabase.from("notion_log").delete().eq("action_id", actionId);
   await supabase.from("outbox").delete().eq("action_id", actionId);
   const { error } = await supabase.from("actions").delete().eq("id", actionId);
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  await logActivity({
+    userId: auth.user.id,
+    projectId: act?.project_id,
+    kind: "task_removed",
+    summary: `Removed task: ${act?.title || actionId}`,
+    data: { actionId },
+  });
   return NextResponse.json({ ok: true });
 }

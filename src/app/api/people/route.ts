@@ -2,6 +2,7 @@ import { log } from "@/lib/log";
 import { NextRequest, NextResponse } from "next/server";
 import { createServerClient } from "@/lib/supabase";
 import { requireUser, readJson, jsonError, canAccessProject } from "@/lib/api-guard";
+import { logActivity } from "@/lib/activity";
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -69,5 +70,12 @@ export async function POST(request: NextRequest) {
     log.error("people insert failed:", error.message);
     return jsonError("Could not add this person.", 500);
   }
+  await logActivity({
+    userId: auth.user.id,
+    projectId,
+    kind: "member_added",
+    summary: `Added ${clean} to the team`,
+    data: { personId: data.id, name: clean, email: cleanEmail },
+  });
   return NextResponse.json({ person: data });
 }

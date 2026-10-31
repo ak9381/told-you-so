@@ -4,6 +4,7 @@ import { createServerClient } from "@/lib/supabase";
 import { createTask } from "@/lib/trackers";
 import { resolveDue, isDemoProject } from "@/lib/dates";
 import { requireUser, readJson, canAccessProject, jsonError, isUuid } from "@/lib/api-guard";
+import { logActivity } from "@/lib/activity";
 
 interface ObjectionVerdict {
   oldDecisionId: string;
@@ -234,6 +235,14 @@ export async function POST(request: NextRequest) {
         }
       }
     }
+
+    await logActivity({
+      userId: auth.user.id,
+      projectId,
+      kind: "decision_saved",
+      summary: `Saved meeting "${meetingTitle}" with ${decisions?.length ?? 0} decisions and ${actions?.length ?? 0} actions`,
+      data: { meetingId: meeting.id, seq: nextSeq, decisionCount: decisions?.length ?? 0, actionCount: actions?.length ?? 0 },
+    });
 
     return NextResponse.json({
       ok: true,
