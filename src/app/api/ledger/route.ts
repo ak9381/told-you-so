@@ -14,7 +14,13 @@ export async function GET() {
     .select("id, status, error, notion_page_id, action_id, created_at")
     .order("created_at", { ascending: false })
     .limit(50);
-  return NextResponse.json({ actions: actions ?? [], notionLog: notionLog ?? [] });
+  const dbId = process.env.NOTION_DATABASE_ID;
+  const notionDbUrl = dbId ? `https://www.notion.so/${dbId.replace(/-/g, "")}` : null;
+  return NextResponse.json({
+    actions: actions ?? [],
+    notionLog: notionLog ?? [],
+    notionDbUrl,
+  });
 }
 
 // Update an action's status (one-tap open/done/blocked).

@@ -11,10 +11,10 @@ interface Project {
 // Tools nav — now lives in the sticky top header (per the design image).
 // "Live" is the home workspace (the live listener folded into the home page).
 const TOOLS = [
-  { href: "/", label: "Live" },
-  { href: "/ledger", label: "Ledger" },
-  { href: "/outbox", label: "Outbox" },
-  { href: "/eval", label: "Eval" },
+  { href: "/", label: "Home" },
+  { href: "/ledger", label: "Tasks" },
+  { href: "/outbox", label: "Reminders" },
+  { href: "/eval", label: "Accuracy" },
 ];
 
 export default function AppShell({ children }: { children: React.ReactNode }) {

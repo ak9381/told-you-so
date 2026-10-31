@@ -36,9 +36,13 @@ function meetingTitle(m: ActionRow["meeting"]): string {
   return m.title ?? "";
 }
 
+const notionPageUrl = (pageId: string | null) =>
+  pageId ? `https://www.notion.so/${pageId.replace(/-/g, "")}` : null;
+
 export default function LedgerPage() {
   const [actions, setActions] = useState<ActionRow[]>([]);
   const [notionLog, setNotionLog] = useState<NotionLogRow[]>([]);
+  const [notionDbUrl, setNotionDbUrl] = useState<string | null>(null);
   const [msg, setMsg] = useState("");
 
   const load = useCallback(() => {
@@ -47,6 +51,7 @@ export default function LedgerPage() {
       .then((d) => {
         setActions(d.actions ?? []);
         setNotionLog(d.notionLog ?? []);
+        setNotionDbUrl(d.notionDbUrl ?? null);
       })
       .catch(() => {});
   }, []);
@@ -82,11 +87,29 @@ export default function LedgerPage() {
     <AppShell>
       <PageTitle
         aside={
-          msg ? <span className="text-sm text-[#6B6560]">{msg}</span> : undefined
+          <div className="flex items-center gap-3">
+            {msg && <span className="text-sm text-[#6B6560]">{msg}</span>}
+            {notionDbUrl && (
+              <a
+                href={notionDbUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-1.5 rounded-xl border border-[#E0DED8] bg-white px-4 py-2 text-sm font-medium text-[#1A1715] hover:bg-[#F1F0EC] transition-colors"
+              >
+                ↗ Open in Notion
+              </a>
+            )}
+          </div>
         }
       >
-        The Ledger
+        Tasks
       </PageTitle>
+
+      <p className="text-[#6B6560] -mt-4 mb-8 max-w-2xl">
+        Every action item we extracted from your meetings — each one is{" "}
+        <strong className="font-medium text-[#1A1715]">filed into your Notion database</strong> and
+        gets a reminder email before it&rsquo;s due. Mark them open / done / blocked here.
+      </p>
 
       <div className="space-y-3 mb-10">
         {actions.length === 0 && (
@@ -115,7 +138,14 @@ export default function LedgerPage() {
                   <span className="text-xs text-[#9B9690]">from {meetingTitle(a.meeting)}</span>
                 )}
                 {a.notion_page_id ? (
-                  <Chip tone="green">filed in Notion</Chip>
+                  <a
+                    href={notionPageUrl(a.notion_page_id) || "#"}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-1 rounded-md bg-[#E6F3EC] px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-[#1C7A4A] hover:bg-[#d6ecdf] transition-colors"
+                  >
+                    ↗ open in Notion
+                  </a>
                 ) : (
                   <Chip tone="neutral">not in Notion</Chip>
                 )}

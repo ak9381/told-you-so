@@ -27,12 +27,16 @@ export default function EvalPage() {
           </PrimaryButton>
         }
       >
-        Evaluation
+        Accuracy
       </PageTitle>
 
       <p className="text-[#6B6560] -mt-4 mb-8 max-w-2xl">
-        {EVAL_CASES.length} hand-labeled validation cases measuring conflict recall,
-        refinement precision, scoping, and messy speech extraction.
+        Proof the agent is right, not just confident. We run it against{" "}
+        <strong className="font-medium text-[#1A1715]">{EVAL_CASES.length} hand-labeled test cases</strong>{" "}
+        — real contradictions it should catch, and lookalikes it should <em>not</em> flag (a refinement
+        like &ldquo;Postgres with read replicas&rdquo; is not a switch to Mongo). <strong className="font-medium text-[#1A1715]">Precision</strong> = of
+        what it flagged, how much was truly a conflict (no false alarms). <strong className="font-medium text-[#1A1715]">Recall</strong> = of
+        the real conflicts, how many it caught. Hit <em>Run evaluation</em> to score it live.
       </p>
 
       {/* Benchmark metric tiles */}

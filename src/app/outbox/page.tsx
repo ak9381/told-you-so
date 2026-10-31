@@ -49,8 +49,16 @@ export default function OutboxPage() {
           <span className="text-xs text-[#9B9690]">auto-refreshes every 5s · {tick}</span>
         }
       >
-        Outbox
+        Reminders
       </PageTitle>
+
+      <p className="text-[#6B6560] -mt-4 mb-8 max-w-2xl">
+        Every reminder &amp; weekly-digest email we&rsquo;ve scheduled or sent, with delivery status.
+        For the demo these all land in the verified inbox{" "}
+        <strong className="font-medium text-[#1A1715]">ak9381@nyu.edu</strong> (the intended
+        person&rsquo;s name is in the subject) — a verified sending domain would send to each owner
+        directly.
+      </p>
 
       <Card className="p-0 overflow-hidden">
         <div className="overflow-x-auto">

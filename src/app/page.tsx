@@ -530,9 +530,17 @@ export default function HomePage() {
       <div className="grid grid-cols-1 md:grid-cols-2 gap-5 mb-8">
         {/* Dictate with Wispr */}
         <Card className="p-6" hover>
-          <div className="flex items-center gap-3 mb-4">
-            <span className="text-xl">🎙️</span>
-            <h3 className="font-serif text-2xl text-[#1A1715]">Dictate with Wispr</h3>
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center gap-3">
+              <span className="text-xl">🎙️</span>
+              <h3 className="font-serif text-2xl text-[#1A1715]">Dictate with Wispr</h3>
+            </div>
+            <span
+              title="Just talk — hold your Wispr Flow dictation key and the words land in this box (or simply type). Nothing to install in this app, and no Wispr login or API key needed. Our cleanup is tuned for the messy, self-correcting way Wispr transcribes real speech."
+              className="cursor-help w-5 h-5 rounded-full border border-[#D8D6D0] text-[#9B9690] text-[11px] font-serif flex items-center justify-center hover:border-[#B9B6AE] hover:text-[#6B6560]"
+            >
+              i
+            </span>
           </div>
           <textarea
             rows={4}
@@ -609,9 +617,17 @@ export default function HomePage() {
 
         {/* Connect Calendar */}
         <Card className="p-6">
-          <div className="flex items-center gap-3 mb-4">
-            <span className="text-xl">📅</span>
-            <h3 className="font-serif text-2xl text-[#1A1715]">Connect Calendar</h3>
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center gap-3">
+              <span className="text-xl">📅</span>
+              <h3 className="font-serif text-2xl text-[#1A1715]">Connect Calendar</h3>
+            </div>
+            <span
+              title="Coming soon: connect Google Calendar so meetings auto-create projects and pull in attendees. For now, add meetings by dictating, uploading a transcript, or pasting a live meeting link."
+              className="cursor-help w-5 h-5 rounded-full border border-[#D8D6D0] text-[#9B9690] text-[11px] font-serif flex items-center justify-center hover:border-[#B9B6AE] hover:text-[#6B6560]"
+            >
+              i
+            </span>
           </div>
           <p className="text-sm text-[#6B6560] mb-4">Import events &amp; meetings automatically.</p>
           <div className="flex items-center gap-2 text-sm">
@@ -622,9 +638,17 @@ export default function HomePage() {
 
         {/* Live Meeting */}
         <Card className="p-6" hover>
-          <div className="flex items-center gap-3 mb-4">
-            <span className="text-xl">📡</span>
-            <h3 className="font-serif text-2xl text-[#1A1715]">Live Meeting</h3>
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center gap-3">
+              <span className="text-xl">📡</span>
+              <h3 className="font-serif text-2xl text-[#1A1715]">Live Meeting</h3>
+            </div>
+            <span
+              title={`Paste a Google Meet or Zoom link — we open the call and listen live (Chrome speech recognition, not Wispr), flagging conflicts with earlier decisions as people talk. It checks against the project selected in the sidebar (${currentProjectName}). No link? Use 'play a demo clip'.`}
+              className="cursor-help w-5 h-5 rounded-full border border-[#D8D6D0] text-[#9B9690] text-[11px] font-serif flex items-center justify-center hover:border-[#B9B6AE] hover:text-[#6B6560]"
+            >
+              i
+            </span>
           </div>
           <input
             value={meetingLink}
