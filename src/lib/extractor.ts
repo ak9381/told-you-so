@@ -145,6 +145,9 @@ export async function extractMeetingItems(
   // quietly return canned output.
   const usage = await checkAndIncrementUsage(userId, false);
   if (!usage.allowed) {
+    if (usage.reason === "usage_unavailable") {
+      throw new ExtractionError("api_error", "Couldn't check your AI usage right now. Please try again in a minute.");
+    }
     throw new ExtractionError(
       "daily_limit",
       "Daily AI limit reached. Try again tomorrow, or use a demo clip."

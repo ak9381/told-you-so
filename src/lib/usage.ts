@@ -5,7 +5,7 @@ const LIVE_CHECK_COOLDOWN_SEC = 15;
 
 export type UsageCheckResult =
   | { allowed: true }
-  | { allowed: false; reason: "daily_limit" | "live_check_cooldown" };
+  | { allowed: false; reason: "daily_limit" | "live_check_cooldown" | "usage_unavailable" };
 
 /**
  * Returns the IST date string (YYYY-MM-DD) for "today" in India.
@@ -41,8 +41,8 @@ export async function checkAndIncrementUsage(
 
   if (fetchErr) {
     console.error("Usage fetch error:", fetchErr);
-    // Fail open — allow the call but log the error
-    return { allowed: true };
+    // Fail closed — without a working counter we cannot enforce the cap.
+    return { allowed: false, reason: "usage_unavailable" };
   }
 
   if (!existing) {
@@ -56,7 +56,7 @@ export async function checkAndIncrementUsage(
 
     if (insertErr) {
       console.error("Usage insert error:", insertErr);
-      return { allowed: true }; // fail open
+      return { allowed: false, reason: "usage_unavailable" }; // fail closed
     }
 
     return { allowed: true };
@@ -91,7 +91,7 @@ export async function checkAndIncrementUsage(
 
   if (updateErr) {
     console.error("Usage update error:", updateErr);
-    return { allowed: true }; // fail open
+    return { allowed: false, reason: "usage_unavailable" }; // fail closed
   }
 
   return { allowed: true };
