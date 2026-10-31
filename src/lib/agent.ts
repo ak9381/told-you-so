@@ -58,7 +58,9 @@ export interface Objection {
     said_at: string | null;
     decidedAt?: string | null; // the date the old decision was made (#3)
   };
-  now: { quote: string; speaker: string; summary: string };
+  // itemIndex = position of the new decision in the extraction (B3: stable id
+  // so commit never maps a verdict by quote text).
+  now: { quote: string; speaker: string; summary: string; itemIndex?: number };
   confidence?: number;
 }
 
@@ -269,7 +271,7 @@ export async function runAgent(
   let aiCalls = 0;
   let offlineOnly = 0;
   const memoryByTopic = new Map<string, MemoryDecision[]>();
-  for (const dec of decisions) {
+  for (const [itemIndex, dec] of decisions.entries()) {
     // 1. search_memory
     step += 1;
     let candidates = memoryByTopic.get(dec.topic);
@@ -329,6 +331,7 @@ export async function runAgent(
             quote: dec.exact_quote,
             speaker: dec.speaker,
             summary: dec.summary,
+            itemIndex,
           },
           confidence: flags.confidence ? v.confidence : undefined,
         });

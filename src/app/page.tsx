@@ -557,10 +557,17 @@ export default function HomePage() {
     const selectedDecisions = result.decisions.filter((_, i) => checkedDecisions[i]);
     const selectedActions = result.actions.filter((_, i) => checkedActions[i]);
 
+    // B3: position of each extracted decision inside the committed subset.
+    const committedPos: Record<number, number> = {};
+    result.decisions.forEach((_, i) => {
+      if (checkedDecisions[i]) committedPos[i] = Object.keys(committedPos).length;
+    });
     const objectionVerdicts = objections
       .map((obj, i) =>
         verdicts[i]
           ? {
+              newItemIndex:
+                typeof obj.now.itemIndex === "number" ? committedPos[obj.now.itemIndex] ?? null : null,
               oldDecisionId: obj.old.id,
               oldQuote: obj.old.quote,
               oldSpeaker: obj.old.speaker,

@@ -3,7 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createServerClient } from "@/lib/supabase";
 import { createTask } from "@/lib/trackers";
 import { resolveDue, isDemoProject } from "@/lib/dates";
-import { requireUser, readJson, canAccessProject, jsonError } from "@/lib/api-guard";
+import { requireUser, readJson, canAccessProject, jsonError, isUuid } from "@/lib/api-guard";
 
 interface ObjectionVerdict {
   oldDecisionId: string;
@@ -12,6 +12,7 @@ interface ObjectionVerdict {
   newQuote: string;
   newSpeaker?: string;
   verdict: "overrule" | "pivot" | "keep_old" | "flag";
+  newItemIndex?: number | null; // B3: index into the committed decisions array
 }
 
 export async function POST(request: NextRequest) {
@@ -104,6 +105,7 @@ export async function POST(request: NextRequest) {
 
     // 4. Insert Decisions (capture ids so objection verdicts can supersede)
     const quoteToDecisionId: Record<string, string> = {};
+    let insertedDecisions: { id: string; exact_quote: string }[] = [];
     if (decisions && Array.isArray(decisions) && decisions.length > 0) {
       const decisionRows = decisions.map((d: { topic: string; exact_quote: string; speaker: string; said_at: string }) => ({
         project_id: projectId,
@@ -123,8 +125,10 @@ export async function POST(request: NextRequest) {
         log.error("decisions insert failed:", dErr.message);
         return jsonError("Saved the meeting but could not save its decisions. Please try again.", 500);
       }
-      for (const row of inserted ?? []) {
-        quoteToDecisionId[row.exact_quote] = row.id;
+      insertedDecisions = inserted ?? [];
+      for (const row of insertedDecisions) {
+        // legacy fallback only (clients without newItemIndex): first row wins
+        if (!(row.exact_quote in quoteToDecisionId)) quoteToDecisionId[row.exact_quote] = row.id;
       }
     }
 
@@ -132,7 +136,14 @@ export async function POST(request: NextRequest) {
     if (objectionVerdicts && Array.isArray(objectionVerdicts)) {
       for (const ov of objectionVerdicts as ObjectionVerdict[]) {
         if (!ov.verdict) continue;
-        const newDecisionId = quoteToDecisionId[ov.newQuote] ?? null;
+        // B3: resolve by stable item index (rows come back in insert order);
+        // only fall back to quote text for older clients.
+        const byIndex =
+          Number.isInteger(ov.newItemIndex) && ov.newItemIndex! >= 0 ? insertedDecisions[ov.newItemIndex!] : undefined;
+        const newDecisionId = Number.isInteger(ov.newItemIndex)
+          ? byIndex?.id ?? null
+          : quoteToDecisionId[ov.newQuote] ?? null;
+        if (!isUuid(ov.oldDecisionId)) continue;
         if (!newDecisionId) continue; // objections table requires both decision ids
 
         await supabase.from("objections").insert({
