@@ -1,3 +1,4 @@
+import { log } from "@/lib/log";
 import { checkAndIncrementUsage } from "@/lib/usage";
 import { fetchWithRetry } from "@/lib/http";
 import { createServerClient } from "./supabase";
@@ -226,7 +227,7 @@ Return ONLY JSON: {"verdict":"CONTRADICTS|REFINES|UNRELATED","match":<the [numbe
         : 0.9;
     return { verdict: norm, matchIndex, confidence, reasoning: parsed.reasoning || "", usedGemini: true };
   } catch (e) {
-    console.warn("verify_conflict fell back to deterministic:", e instanceof Error ? e.message : e);
+    log.warn("verify_conflict fell back to deterministic:", e instanceof Error ? e.message : e);
     return deterministicVerify(candidates, item, topic);
   }
 }

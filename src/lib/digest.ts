@@ -1,3 +1,4 @@
+import { log } from "@/lib/log";
 import { createServerClient } from "./supabase";
 import { sendEmail } from "./email";
 import type { SupabaseClient } from "@supabase/supabase-js";
@@ -25,7 +26,7 @@ export async function buildDigest(
     .order("due_date", { ascending: true });
   if (scope) aq = aq.in("project_id", scope);
   const { data: actions, error: aErr } = await aq;
-  if (aErr) console.error("digest actions query failed:", aErr.message);
+  if (aErr) log.error("digest actions query failed:", aErr.message);
 
   let dq = supabase
     .from("decisions")

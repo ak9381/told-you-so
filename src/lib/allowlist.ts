@@ -1,3 +1,4 @@
+import { log } from "@/lib/log";
 /**
  * Check if an email is in the allowlist.
  * ALLOWED_EMAILS is a comma-separated secret with at most 5 entries.
@@ -11,7 +12,7 @@ export function isEmailAllowed(email: string): boolean {
 
   // Safety: refuse to check if more than 5 are listed
   if (list.length > 5) {
-    console.error("ALLOWED_EMAILS has more than 5 entries — refusing access");
+    log.error("ALLOWED_EMAILS has more than 5 entries — refusing access");
     return false;
   }
 

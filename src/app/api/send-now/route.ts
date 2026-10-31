@@ -1,3 +1,4 @@
+import { log } from "@/lib/log";
 import { NextRequest, NextResponse } from "next/server";
 import { runReminders } from "@/lib/reminders";
 import { runDigests, buildDigest, renderDigestHtml } from "@/lib/digest";
@@ -56,7 +57,7 @@ export async function POST(request: NextRequest) {
   }
 
   } catch (e) {
-    console.error("send-now error:", e);
+    log.error("send-now error:", e);
     return jsonError("Could not send right now. Please try again in a minute.", 500);
   }
 

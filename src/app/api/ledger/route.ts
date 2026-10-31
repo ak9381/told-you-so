@@ -1,3 +1,4 @@
+import { log } from "@/lib/log";
 import { NextRequest, NextResponse } from "next/server";
 import { createServerClient } from "@/lib/supabase";
 import { createTask, updateNotionTaskStatus } from "@/lib/trackers";
@@ -33,7 +34,7 @@ export async function GET(request: NextRequest) {
   aq = aq.in("project_id", allowed.length ? allowed : ["00000000-0000-0000-0000-000000000000"]);
   const { data: actions, error: actErr } = await aq;
   if (actErr) {
-    console.error("ledger fetch error:", actErr.message);
+    log.error("ledger fetch error:", actErr.message);
     return jsonError("Could not load tasks. Please refresh.", 500);
   }
   const actionIds = (actions ?? []).map((a) => a.id as string);

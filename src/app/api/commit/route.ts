@@ -1,3 +1,4 @@
+import { log } from "@/lib/log";
 import { NextRequest, NextResponse } from "next/server";
 import { createServerClient } from "@/lib/supabase";
 import { createTask } from "@/lib/trackers";
@@ -84,7 +85,7 @@ export async function POST(request: NextRequest) {
       .single();
 
     if (meetingErr || !meeting) {
-      console.error("Meeting insert failed:", meetingErr);
+      log.error("Meeting insert failed:", meetingErr);
       return NextResponse.json({ error: "Failed to create meeting" }, { status: 500 });
     }
 
@@ -98,7 +99,7 @@ export async function POST(request: NextRequest) {
         seq: idx + 1,
       }));
       const { error: uErr } = await supabase.from("utterances").insert(utteranceRows);
-      if (uErr) console.error("utterances insert failed:", uErr.message);
+      if (uErr) log.error("utterances insert failed:", uErr.message);
     }
 
     // 4. Insert Decisions (capture ids so objection verdicts can supersede)
@@ -119,7 +120,7 @@ export async function POST(request: NextRequest) {
         .insert(decisionRows)
         .select("id, exact_quote");
       if (dErr) {
-        console.error("decisions insert failed:", dErr.message);
+        log.error("decisions insert failed:", dErr.message);
         return jsonError("Saved the meeting but could not save its decisions. Please try again.", 500);
       }
       for (const row of inserted ?? []) {
@@ -192,7 +193,7 @@ export async function POST(request: NextRequest) {
         .from("actions")
         .insert(actionRows)
         .select("id, title, owner, due_date, source_quote");
-      if (aErr) console.error("actions insert failed:", aErr.message);
+      if (aErr) log.error("actions insert failed:", aErr.message);
 
       // Best-effort: file each action in Notion; never block the ledger.
       for (const act of insertedActions ?? []) {
@@ -230,7 +231,7 @@ export async function POST(request: NextRequest) {
       title: meetingTitle,
     });
   } catch (error) {
-    console.error("Commit error:", error);
+    log.error("Commit error:", error);
     return NextResponse.json(
       { error: "Failed to commit record" },
       { status: 500 }

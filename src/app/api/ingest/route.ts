@@ -1,3 +1,4 @@
+import { log } from "@/lib/log";
 import { NextRequest, NextResponse } from "next/server";
 import { parseMeetingInput, InputSourceType } from "@/lib/parser";
 import { extractMeetingItems, ExtractionError } from "@/lib/extractor";
@@ -45,7 +46,7 @@ export async function POST(request: NextRequest) {
       const kind = err instanceof ExtractionError ? err.kind : "api_error";
       const message =
         err instanceof Error ? err.message : "AI extraction failed.";
-      console.error("Extraction error:", err);
+      log.error("Extraction error:", err);
       return NextResponse.json(
         { error: message, aiError: true, kind, detectedType, utterances },
         { status: kind === "daily_limit" ? 429 : 502 }
@@ -57,7 +58,7 @@ export async function POST(request: NextRequest) {
     const agentP: Promise<AgentResult | null> =
       typeof projectId === "string" && extraction.decisions.length > 0
         ? runAgent(extraction.decisions, projectId, userId).catch((e) => {
-            console.error("Agent error:", e);
+            log.error("Agent error:", e);
             return null;
           })
         : Promise.resolve(null);
@@ -80,7 +81,7 @@ export async function POST(request: NextRequest) {
       verification,
     });
   } catch (error) {
-    console.error("Ingest error:", error);
+    log.error("Ingest error:", error);
     return NextResponse.json(
       { error: "Failed to process text" },
       { status: 500 }

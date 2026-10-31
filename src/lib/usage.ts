@@ -1,3 +1,4 @@
+import { log } from "@/lib/log";
 import { createServerClient } from "./supabase";
 
 const GEMINI_DAILY_CAP = parseInt(process.env.GEMINI_DAILY_CAP || "60", 10);
@@ -40,7 +41,7 @@ export async function checkAndIncrementUsage(
     .maybeSingle();
 
   if (fetchErr) {
-    console.error("Usage fetch error:", fetchErr);
+    log.error("Usage fetch error:", fetchErr);
     // Fail closed — without a working counter we cannot enforce the cap.
     return { allowed: false, reason: "usage_unavailable" };
   }
@@ -55,7 +56,7 @@ export async function checkAndIncrementUsage(
     });
 
     if (insertErr) {
-      console.error("Usage insert error:", insertErr);
+      log.error("Usage insert error:", insertErr);
       return { allowed: false, reason: "usage_unavailable" }; // fail closed
     }
 
@@ -90,7 +91,7 @@ export async function checkAndIncrementUsage(
     .eq("id", existing.id);
 
   if (updateErr) {
-    console.error("Usage update error:", updateErr);
+    log.error("Usage update error:", updateErr);
     return { allowed: false, reason: "usage_unavailable" }; // fail closed
   }
 

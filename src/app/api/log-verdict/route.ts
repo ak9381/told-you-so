@@ -1,3 +1,4 @@
+import { log } from "@/lib/log";
 import { NextRequest, NextResponse } from "next/server";
 import { createServerClient } from "@/lib/supabase";
 import { requireUser, readJson, jsonError } from "@/lib/api-guard";
@@ -28,7 +29,7 @@ export async function POST(request: NextRequest) {
     confidence: typeof confidence === "number" && Number.isFinite(confidence) ? confidence : null,
   });
   if (error) {
-    console.error("verdict log insert failed:", error.message);
+    log.error("verdict log insert failed:", error.message);
     return NextResponse.json({ ok: true, logged: false });
   }
   return NextResponse.json({ ok: true, logged: true });

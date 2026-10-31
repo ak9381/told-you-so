@@ -1,3 +1,4 @@
+import { log } from "@/lib/log";
 import { NextRequest, NextResponse } from "next/server";
 import { runReminders } from "@/lib/reminders";
 
@@ -13,7 +14,7 @@ export async function GET(request: NextRequest) {
     const result = await runReminders();
     return NextResponse.json({ ok: true, ...result, timestamp: new Date().toISOString() });
   } catch (e) {
-    console.error("cron runReminders failed:", e instanceof Error ? e.message : e);
+    log.error("cron runReminders failed:", e instanceof Error ? e.message : e);
     return NextResponse.json({ ok: false, error: "cron run failed" }, { status: 500 });
   }
 }

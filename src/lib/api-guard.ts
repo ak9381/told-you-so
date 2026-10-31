@@ -1,3 +1,4 @@
+import { log } from "@/lib/log";
 import { NextResponse, type NextRequest } from "next/server";
 import type { SupabaseClient, User } from "@supabase/supabase-js";
 import { getRequestUser } from "@/lib/supabase-ssr";
@@ -20,7 +21,7 @@ export async function requireUser(
   try {
     user = await getRequestUser(request);
   } catch (e) {
-    console.error("auth lookup failed:", e);
+    log.error("auth lookup failed:", e);
   }
   if (!user?.email) return { error: jsonError("Please sign in again.", 401) };
   if (!isEmailAllowed(user.email)) return { error: jsonError("This account is not on the access list.", 403) };
@@ -75,7 +76,7 @@ export async function canAccessProject(
     .eq("id", projectId)
     .maybeSingle();
   if (error) {
-    console.error("project access check failed:", error.message);
+    log.error("project access check failed:", error.message);
     return false;
   }
   return !!data && (data.user_id === null || data.user_id === userId);

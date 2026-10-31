@@ -1,3 +1,4 @@
+import { log } from "@/lib/log";
 import { NextRequest, NextResponse } from "next/server";
 import { runDigests } from "@/lib/digest";
 
@@ -12,7 +13,7 @@ export async function GET(request: NextRequest) {
     const result = await runDigests();
     return NextResponse.json({ ok: true, ...result, timestamp: new Date().toISOString() });
   } catch (e) {
-    console.error("cron runDigests failed:", e instanceof Error ? e.message : e);
+    log.error("cron runDigests failed:", e instanceof Error ? e.message : e);
     return NextResponse.json({ ok: false, error: "cron run failed" }, { status: 500 });
   }
 }

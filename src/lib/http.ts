@@ -1,3 +1,4 @@
+import { log } from "@/lib/log";
 /**
  * fetch with a timeout and one retry on network errors / 429 / 5xx.
  * Used for Gemini, Notion and Resend.
@@ -14,14 +15,14 @@ export async function fetchWithRetry(
     try {
       const res = await fetch(url, { ...init, signal: ctrl.signal });
       if ((res.status === 429 || res.status >= 500) && attempt < retries) {
-        console.warn(`${label}: HTTP ${res.status}, retrying`);
+        log.warn(`${label}: HTTP ${res.status}, retrying`);
         await new Promise((r) => setTimeout(r, 500 * (attempt + 1)));
         continue;
       }
       return res;
     } catch (e) {
       lastErr = e;
-      console.warn(`${label}: attempt ${attempt + 1} failed:`, e instanceof Error ? e.message : e);
+      log.warn(`${label}: attempt ${attempt + 1} failed:`, e instanceof Error ? e.message : e);
       if (attempt < retries) await new Promise((r) => setTimeout(r, 500 * (attempt + 1)));
     } finally {
       clearTimeout(timer);

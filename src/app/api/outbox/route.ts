@@ -1,3 +1,4 @@
+import { log } from "@/lib/log";
 import { NextRequest, NextResponse } from "next/server";
 import { createServerClient } from "@/lib/supabase";
 import { requireUser, canAccessProject, jsonError } from "@/lib/api-guard";
@@ -37,7 +38,7 @@ export async function GET(request: NextRequest) {
 
   const { data, error } = await q;
   if (error) {
-    console.error("outbox fetch error:", error.message);
+    log.error("outbox fetch error:", error.message);
     return jsonError("Could not load reminders. Please refresh.", 500);
   }
   return NextResponse.json({ outbox: data ?? [] });

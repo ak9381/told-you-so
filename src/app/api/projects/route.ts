@@ -1,3 +1,4 @@
+import { log } from "@/lib/log";
 import { NextRequest, NextResponse } from "next/server";
 import { createServerClient } from "@/lib/supabase";
 import { flags } from "@/lib/flags";
@@ -29,7 +30,7 @@ export async function GET(request: NextRequest) {
     }
     return NextResponse.json({ projects });
   } catch (e) {
-    console.error("projects fetch error:", e);
+    log.error("projects fetch error:", e);
     return NextResponse.json({ projects: [] }, { status: 500 });
   }
 }
@@ -56,7 +57,7 @@ export async function POST(request: NextRequest) {
     if (error) throw error;
     return NextResponse.json({ project: data });
   } catch (e) {
-    console.error("project create error:", e);
+    log.error("project create error:", e);
     return NextResponse.json({ error: "Could not create the project" }, { status: 500 });
   }
 }

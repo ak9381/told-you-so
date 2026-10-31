@@ -1,3 +1,4 @@
+import { log } from "@/lib/log";
 import { NextRequest, NextResponse } from "next/server";
 import { createServerClient } from "@/lib/supabase";
 import { requireUser, canAccessProject } from "@/lib/api-guard";
@@ -24,7 +25,7 @@ export async function GET(request: NextRequest) {
     .order("created_at", { ascending: false });
 
   if (error) {
-    console.error("timeline error:", error);
+    log.error("timeline error:", error);
     return NextResponse.json({ decisions: [] }, { status: 500 });
   }
   const decisions = (data ?? []).map((d) => {

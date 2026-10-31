@@ -1,3 +1,4 @@
+import { log } from "@/lib/log";
 import { fetchWithRetry } from "@/lib/http";
 import { NextRequest, NextResponse } from "next/server";
 import { requireUser, readJson, canAccessProject } from "@/lib/api-guard";
@@ -110,7 +111,7 @@ Return ONLY JSON: {"results":[{"quote":"exact words from the new lines","topic":
 
     return NextResponse.json({ skipped: false, results });
   } catch (e) {
-    console.error("live-check error:", e);
+    log.error("live-check error:", e);
     return NextResponse.json({ skipped: true, reason: "error", results: [] });
   }
 }

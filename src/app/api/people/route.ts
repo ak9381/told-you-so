@@ -1,3 +1,4 @@
+import { log } from "@/lib/log";
 import { NextRequest, NextResponse } from "next/server";
 import { createServerClient } from "@/lib/supabase";
 import { requireUser, readJson, jsonError, canAccessProject } from "@/lib/api-guard";
@@ -19,7 +20,7 @@ export async function GET(request: NextRequest) {
     .or(`project_id.eq.${projectId},project_id.is.null`)
     .order("created_at", { ascending: true });
   if (error) {
-    console.error("people fetch failed:", error.message);
+    log.error("people fetch failed:", error.message);
     return jsonError("Could not load team members.", 500);
   }
   return NextResponse.json({ people: data ?? [] });
@@ -65,7 +66,7 @@ export async function POST(request: NextRequest) {
     .select("id, name, email, project_id")
     .single();
   if (error) {
-    console.error("people insert failed:", error.message);
+    log.error("people insert failed:", error.message);
     return jsonError("Could not add this person.", 500);
   }
   return NextResponse.json({ person: data });

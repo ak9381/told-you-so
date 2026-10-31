@@ -1,3 +1,4 @@
+import { log } from "@/lib/log";
 import { fetchWithRetry } from "@/lib/http";
 import { checkAndIncrementUsage } from "@/lib/usage";
 import type { ExtractionResult } from "@/lib/extractor";
@@ -125,7 +126,7 @@ confidence is 0-1: 1 = fully faithful, below 0.6 = likely wrong or hallucinated.
       : [];
     return { status: "verified", overall, items: out, missed };
   } catch (e) {
-    console.error("verifyExtraction failed:", e instanceof Error ? e.message : e);
+    log.error("verifyExtraction failed:", e instanceof Error ? e.message : e);
     return NOT_VERIFIED("AI check timed out or failed");
   }
 }
