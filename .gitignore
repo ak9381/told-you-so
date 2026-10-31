@@ -49,3 +49,6 @@ next-env.d.ts
 
 # Claude Code: share project MCP servers, settings, and skills; keep personal local settings out
 .claude/settings.local.json
+
+.playwright-mcp/
+playwright-test-example.png
