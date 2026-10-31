@@ -99,13 +99,19 @@ export default function OutboxPage() {
               </tr>
             </thead>
             <tbody>
-              {loading && (
-                <tr>
-                  <td colSpan={8} className="px-4 py-8 text-[#9B9690] italic text-center">
-                    Loading reminders…
-                  </td>
-                </tr>
-              )}
+              {loading &&
+                [1, 2, 3, 4].map((n) => (
+                  <tr key={n} className="border-t border-[#EFEEEA] animate-pulse">
+                    <td className="px-4 py-3"><div className="h-4 bg-[#E7E5E0] rounded w-16" /></td>
+                    <td className="px-4 py-3"><div className="h-4 bg-[#E7E5E0] rounded w-20" /></td>
+                    <td className="px-4 py-3"><div className="h-4 bg-[#E7E5E0] rounded w-48" /></td>
+                    <td className="px-4 py-3"><div className="h-4 bg-[#EFEFEA] rounded w-20" /></td>
+                    <td className="px-4 py-3"><div className="h-4 bg-[#EFEFEA] rounded w-20" /></td>
+                    <td className="px-4 py-3"><div className="h-4 bg-[#EFEFEA] rounded w-12" /></td>
+                    <td className="px-4 py-3"><div className="h-5 bg-[#E7E5E0] rounded-full w-16" /></td>
+                    <td className="px-4 py-3"><div className="h-4 bg-[#EFEFEA] rounded w-24" /></td>
+                  </tr>
+                ))}
               {!loading && rows.length === 0 && (
                 <tr>
                   <td colSpan={8} className="px-4 py-8 text-[#9B9690] italic text-center">

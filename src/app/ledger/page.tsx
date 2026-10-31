@@ -279,6 +279,13 @@ export default function LedgerPage() {
             </button>
           </div>
         </div>
+        {loading && people.length === 0 && (
+          <div className="flex flex-wrap gap-2 mt-4 animate-pulse">
+            <div className="h-6 w-24 bg-[#E7E5E0] rounded-full" />
+            <div className="h-6 w-28 bg-[#E7E5E0] rounded-full" />
+            <div className="h-6 w-20 bg-[#E7E5E0] rounded-full" />
+          </div>
+        )}
         {people.length > 0 && (
           <div className="flex flex-wrap gap-2 mt-4">
             {people.map((p) => (
@@ -316,9 +323,21 @@ export default function LedgerPage() {
 
       <div className="space-y-3 mb-10">
         {loading && (
-          <Card className="p-6">
-            <p className="text-sm text-[#9B9690]">Loading tasks…</p>
-          </Card>
+          <div className="space-y-3">
+            {[1, 2, 3].map((n) => (
+              <Card key={n} className="p-5 flex flex-wrap items-start justify-between gap-4 animate-pulse">
+                <div className="flex-1 min-w-[260px] space-y-2.5">
+                  <div className="h-5 bg-[#E7E5E0] rounded w-3/4" />
+                  <div className="h-4 bg-[#EFEFEA] rounded w-1/2" />
+                  <div className="h-3 bg-[#EFEFEA] rounded w-2/3" />
+                </div>
+                <div className="flex items-center gap-2">
+                  <div className="h-8 w-20 bg-[#E7E5E0] rounded-lg" />
+                  <div className="h-8 w-24 bg-[#E7E5E0] rounded-lg" />
+                </div>
+              </Card>
+            ))}
+          </div>
         )}
         {!loading && actions.length === 0 && (
           <Card className="p-6">

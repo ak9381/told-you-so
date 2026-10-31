@@ -1,6 +1,8 @@
 import type { Metadata } from "next";
 import WelcomeClient from "./WelcomeClient";
 
+export const dynamic = "force-static";
+
 export const metadata: Metadata = {
   title: "Told You So — the meeting agent that argues back",
   description:

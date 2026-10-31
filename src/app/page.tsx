@@ -1356,6 +1356,18 @@ export default function HomePage() {
       )}
 
       {/* Decision timeline */}
+      {!projectsLoaded && (
+        <Card className="p-6 mb-12 animate-pulse">
+          <div className="h-6 bg-[#E7E5E0] rounded w-52 mb-5" />
+          <div className="space-y-4">
+            <div className="h-3 bg-[#EFEFEA] rounded w-24 mb-2" />
+            <div className="h-4 bg-[#E7E5E0] rounded w-4/5" />
+            <div className="h-4 bg-[#E7E5E0] rounded w-2/3" />
+            <div className="h-3 bg-[#EFEFEA] rounded w-28 mt-4 mb-2" />
+            <div className="h-4 bg-[#E7E5E0] rounded w-3/4" />
+          </div>
+        </Card>
+      )}
       {timeline.length > 0 && (
         <Card className="p-6 mb-12">
           <h3 className="font-serif text-xl text-[#1A1715] mb-5">
