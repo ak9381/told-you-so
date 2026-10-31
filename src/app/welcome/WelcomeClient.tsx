@@ -100,16 +100,7 @@ export default function WelcomeClient() {
           <a href="/welcome" className="font-serif text-lg font-semibold tracking-tight">
             TOLD YOU SO
           </a>
-          <nav className="flex items-center gap-7 text-sm">
-            <a className="hidden text-[#A8A29E] transition-colors hover:text-[#F5F5F4] sm:inline" href="/ledger">
-              Ledger
-            </a>
-            <a className="hidden text-[#A8A29E] transition-colors hover:text-[#F5F5F4] sm:inline" href="/outbox">
-              Outbox
-            </a>
-            <a className="hidden text-[#A8A29E] transition-colors hover:text-[#F5F5F4] sm:inline" href="/eval">
-              Eval
-            </a>
+          <nav className="flex items-center text-sm">
             <a
               href="/login"
               className="rounded-full bg-[#F5F5F4] px-4 py-2 text-[13px] font-medium text-[#0A0A0B] transition-transform hover:scale-[1.03]"
