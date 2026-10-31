@@ -1,3 +1,4 @@
+import { fetchWithRetry } from "@/lib/http";
 // Resend email helper. With no verified domain, Resend only delivers to the
 // account owner's address, so every demo email goes there with the intended
 // person's name in the subject (per the plan).
@@ -23,7 +24,7 @@ export async function sendEmail(opts: {
   const from = process.env.RESEND_FROM || "Told You So <onboarding@resend.dev>";
 
   try {
-    const res = await fetch("https://api.resend.com/emails", {
+    const res = await fetchWithRetry("https://api.resend.com/emails", {
       method: "POST",
       headers: {
         Authorization: `Bearer ${key}`,
@@ -35,7 +36,7 @@ export async function sendEmail(opts: {
         subject: `[Told You So · ${opts.toName}] ${opts.subject}`,
         html: opts.html,
       }),
-    });
+    }, { timeoutMs: 15_000, retries: 0, label: "resend" });
     const data = await res.json().catch(() => ({}));
     if (!res.ok) return { ok: false, error: data?.message || `HTTP ${res.status}` };
     return { ok: true, id: data.id };

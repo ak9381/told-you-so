@@ -1,3 +1,4 @@
+import { fetchWithRetry } from "@/lib/http";
 // Tracker adapter: createTask(task) -> { url, id }. Notion is the only tracker
 // for now; GitHub Issues could slot in behind the same interface later.
 
@@ -44,7 +45,7 @@ async function createNotionTask(task: TaskInput): Promise<TrackerResult> {
   if (task.due) properties["Due"] = { date: { start: task.due } };
 
   try {
-    const res = await fetch("https://api.notion.com/v1/pages", {
+    const res = await fetchWithRetry("https://api.notion.com/v1/pages", {
       method: "POST",
       // bind fetch to globalThis avoids Workers' "Illegal invocation"
       headers: {
@@ -53,7 +54,7 @@ async function createNotionTask(task: TaskInput): Promise<TrackerResult> {
         "Content-Type": "application/json",
       },
       body: JSON.stringify({ parent: { database_id: dbId }, properties }),
-    });
+    }, { timeoutMs: 15_000, retries: 0, label: "notion-create" });
     const data = await res.json().catch(() => ({}));
     if (!res.ok) return { ok: false, error: data?.message || `HTTP ${res.status}` };
     return { ok: true, id: data.id, url: data.url };
@@ -82,7 +83,7 @@ export async function updateNotionTaskStatus(
   const token = process.env.NOTION_TOKEN;
   if (!token) return { ok: false, error: "Notion not configured" };
   try {
-    const res = await fetch(`https://api.notion.com/v1/pages/${pageId}`, {
+    const res = await fetchWithRetry(`https://api.notion.com/v1/pages/${pageId}`, {
       method: "PATCH",
       headers: {
         Authorization: `Bearer ${token}`,
@@ -92,7 +93,7 @@ export async function updateNotionTaskStatus(
       body: JSON.stringify({
         properties: { Status: { select: { name: STATUS_TO_NOTION[status] || status } } },
       }),
-    });
+    }, { timeoutMs: 15_000, retries: 1, label: "notion-update" });
     const data = await res.json().catch(() => ({}));
     if (!res.ok) return { ok: false, error: data?.message || `HTTP ${res.status}` };
     return { ok: true, id: data.id, url: data.url };

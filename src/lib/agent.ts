@@ -1,3 +1,4 @@
+import { fetchWithRetry } from "@/lib/http";
 import { createServerClient } from "./supabase";
 import { ExtractedDecision } from "./extractor";
 import { flags, CONFIDENCE_THRESHOLD } from "./flags";
@@ -180,7 +181,7 @@ Decide the relationship between the NEW statement and the MOST RELEVANT prior de
 Return ONLY JSON: {"verdict":"CONTRADICTS|REFINES|UNRELATED","match":<the [number] of the most relevant prior decision, or 0 if none>,"confidence":<a number 0..1 for how sure you are this is a real contradiction>,"reasoning":"one short sentence"}`;
 
   try {
-    const res = await fetch(
+    const res = await fetchWithRetry(
       `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${key}`,
       {
         method: "POST",

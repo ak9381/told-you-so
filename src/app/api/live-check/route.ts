@@ -1,3 +1,4 @@
+import { fetchWithRetry } from "@/lib/http";
 import { NextRequest, NextResponse } from "next/server";
 import { getRequestUser } from "@/lib/supabase-ssr";
 import { getProjectMemory } from "@/lib/agent";
@@ -76,7 +77,7 @@ Ignore small talk and lines with no decision. Be conservative: only mark "contra
 
 Return ONLY JSON: {"results":[{"quote":"exact words from the new lines","topic":"one topic key","verdict":"contradicts|refines|new","old_quote":"the prior decision's quote if contradicts/refines else empty","old_speaker":"","old_meeting_seq":0,"reasoning":"one short sentence"}]}`;
 
-    const res = await fetch(
+    const res = await fetchWithRetry(
       `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${key}`,
       {
         method: "POST",

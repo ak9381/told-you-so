@@ -1,3 +1,4 @@
+import { fetchWithRetry } from "@/lib/http";
 import { checkAndIncrementUsage } from "./usage";
 
 export const TOPIC_KEYS = [
@@ -198,7 +199,7 @@ Return ONLY a JSON object adhering to this structure:
 
   let response: Response;
   try {
-    response = await fetch(
+    response = await fetchWithRetry(
       `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${geminiApiKey}`,
       {
         method: "POST",
