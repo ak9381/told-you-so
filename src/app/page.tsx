@@ -1432,7 +1432,7 @@ function VerifySummary({ verification }: { verification: Verification | null }) 
     <div className="mt-2 text-xs text-[#6B6560]">
       <span className="font-medium">Checked against the source: {pct}% overall.</span>
       {verification.missed.length > 0 && (
-        <span> Possibly missed: {verification.missed.slice(0, 3).join("; ")}.</span>
+        <span> Possibly missed: {verification.missed.join("; ")}.</span>
       )}
     </div>
   );
