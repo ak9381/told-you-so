@@ -1,3 +1,4 @@
+import { checkAndIncrementUsage } from "@/lib/usage";
 import { fetchWithRetry } from "@/lib/http";
 import { createServerClient } from "./supabase";
 import { ExtractedDecision } from "./extractor";
@@ -158,10 +159,11 @@ function deterministicVerify(
 async function verifyConflict(
   candidates: MemoryDecision[],
   item: ExtractedDecision,
-  topic: string
+  topic: string,
+  allowGemini = true
 ): Promise<VerifyOutput> {
   const key = process.env.GEMINI_API_KEY;
-  if (!key) return deterministicVerify(candidates, item, topic);
+  if (!key || !allowGemini) return deterministicVerify(candidates, item, topic);
 
   const list = candidates
     .map((c, i) => `[${i + 1}] "${c.exact_quote}"`)
@@ -209,7 +211,8 @@ Return ONLY JSON: {"verdict":"CONTRADICTS|REFINES|UNRELATED","match":<the [numbe
         ? Math.max(0, Math.min(1, parsed.confidence))
         : 0.9;
     return { verdict: norm, matchIndex, confidence, reasoning: parsed.reasoning || "", usedGemini: true };
-  } catch {
+  } catch (e) {
+    console.warn("verify_conflict fell back to deterministic:", e instanceof Error ? e.message : e);
     return deterministicVerify(candidates, item, topic);
   }
 }
@@ -221,7 +224,8 @@ Return ONLY JSON: {"verdict":"CONTRADICTS|REFINES|UNRELATED","match":<the [numbe
  */
 export async function runAgent(
   decisions: ExtractedDecision[],
-  projectId: string
+  projectId: string,
+  userId?: string
 ): Promise<AgentResult> {
   const trace: TraceStep[] = [];
   const objections: Objection[] = [];
@@ -250,7 +254,10 @@ export async function runAgent(
 
     // 2. verify_conflict against ALL prior decisions on the topic
     step += 1;
-    const v = await verifyConflict(candidates, dec, dec.topic);
+    // Every Gemini call counts toward the per-user daily cap; over the cap we
+    // fall back to the deterministic check instead of failing.
+    const allowGemini = userId ? (await checkAndIncrementUsage(userId, false)).allowed : true;
+    const v = await verifyConflict(candidates, dec, dec.topic, allowGemini);
     if (!v.usedGemini) path = "fallback";
     const prior = candidates[v.matchIndex] ?? candidates[0];
     trace.push({

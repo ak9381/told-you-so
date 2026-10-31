@@ -56,7 +56,7 @@ export async function POST(request: NextRequest) {
     // parallel; neither may block the tray.
     const agentP: Promise<AgentResult | null> =
       typeof projectId === "string" && extraction.decisions.length > 0
-        ? runAgent(extraction.decisions, projectId).catch((e) => {
+        ? runAgent(extraction.decisions, projectId, userId).catch((e) => {
             console.error("Agent error:", e);
             return null;
           })
