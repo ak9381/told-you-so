@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { usePathname } from "next/navigation";
+import Link from "next/link";
 
 interface Project {
   id: string;
@@ -98,13 +99,13 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
   return (
     <div className="flex min-h-screen">
       <aside className="w-60 shrink-0 glass-shell border-r border-white/60 flex flex-col sticky top-0 h-screen">
-        <a href="/" className="px-6 pt-7 pb-5 block">
+        <Link href="/" className="px-6 pt-7 pb-5 block" aria-label="Told You So home">
           <div className="font-serif text-2xl font-black leading-[1.05] tracking-tight text-[#1A1715]">
             TOLD
             <br />
             YOU SO
           </div>
-        </a>
+        </Link>
 
         {/* Project switcher */}
         <div className="px-4 pt-3 pb-3 border-t border-[#EFEEEA]">
