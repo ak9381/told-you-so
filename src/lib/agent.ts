@@ -235,6 +235,15 @@ export async function runAgent(
   let step = 0;
 
   const toCheck = decisions.slice(0, MAX_DECISIONS);
+  if (decisions.length > MAX_DECISIONS) {
+    trace.push({
+      step: 0,
+      tool: "search_memory",
+      input: `${decisions.length} decisions`,
+      output: `checked first ${MAX_DECISIONS}`,
+      reasoning: `Only the first ${MAX_DECISIONS} decisions were conflict-checked (rate limit). All ${decisions.length} are still in the tray and will be saved.`,
+    });
+  }
 
   for (const dec of toCheck) {
     // 1. search_memory

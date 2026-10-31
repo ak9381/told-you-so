@@ -167,6 +167,8 @@ Context:
 - Resolve relative dates to clean descriptive strings (e.g., "Next Tuesday", "Today 11:59 PM IST", "10:30 PM tonight").
 - IMPORTANT: capture statements about deadlines, submission timing, team size, scope, tooling, pricing, or dates as DECISIONS with the matching topic key — even casual ones — because these get checked against earlier agreements. Examples: "deadline is tomorrow morning" -> decision topic "deadline"; "let's submit by midnight" / "submit by 11 PM" -> decision topic "deadline"; "we can be 3" -> decision topic "team-size"; "no need to deploy" -> decision topic "submission"; "old projects are fine" -> decision topic "scope". A statement can be BOTH a decision and an action.
 - Architecture/stack decisions map to these fixed topic keys: a choice of database (Postgres/Mongo/SQL/NoSQL for a ledger/store) -> "ledger_database"; how to get updates (polling vs webhooks, sync strategy) -> "settlement_updates_sync"; the auth choice (Clerk/Auth0/custom JWT/login) -> "auth_provider". E.g. "switch the ledger to Mongo" -> decision topic "ledger_database"; "let's just do polling" -> "settlement_updates_sync"; "Clerk with Google login only" -> "auth_provider".
+- Capture EVERY distinct rule, constraint or decision as its OWN item. NEVER merge several rules into one item, even when they share a topic key — a briefing with 8 rules must yield 8 decision items. Several decisions may use the same topic key.
+- If a rule has no named speaker (e.g. a briefing or rules list), use "Organizer" as the speaker, never leave it empty.
 - Allowed topic keys: ${TOPIC_KEYS.join(", ")}.
 
 Input Text:
@@ -212,6 +214,7 @@ Return ONLY a JSON object adhering to this structure:
           generationConfig: {
             responseMimeType: "application/json",
             temperature: 0.1,
+            maxOutputTokens: 8192,
           },
         }),
       }
@@ -237,10 +240,81 @@ Return ONLY a JSON object adhering to this structure:
     throw new ExtractionError("api_error", "AI returned an empty response.");
   }
 
+  const finish = data?.candidates?.[0]?.finishReason;
+  let parsed: unknown;
   try {
-    return JSON.parse(textOutput) as ExtractionResult;
+    parsed = JSON.parse(textOutput);
   } catch {
-    throw new ExtractionError("api_error", "AI returned malformed JSON.");
+    throw new ExtractionError(
+      "api_error",
+      finish === "MAX_TOKENS"
+        ? "That input produced too many items to read in one go. Split it into smaller parts."
+        : "AI returned malformed JSON."
+    );
   }
+  return normalizeExtraction(parsed);
+}
+
+const str = (v: unknown, max = 2000) => (typeof v === "string" ? v.trim().slice(0, max) : "");
+
+/**
+ * Validate and clean the model's JSON WITHOUT dropping items. Earlier, items
+ * with a null speaker/quote reached the DB and the whole decisions insert
+ * failed (speaker/exact_quote are NOT NULL), silently losing the batch. Now:
+ * - every item is kept unless it has no text at all;
+ * - unknown topics become "other" (never filtered);
+ * - missing speakers become "Organizer";
+ * - only EXACT duplicates (same topic + same quote) are collapsed — items
+ *   sharing a topic are never merged.
+ */
+export function normalizeExtraction(raw: unknown): ExtractionResult {
+  const o = (raw && typeof raw === "object" ? raw : {}) as Record<string, unknown>;
+  const topicSet = new Set<string>(TOPIC_KEYS);
+  const seen = new Set<string>();
+  const decisions: ExtractedDecision[] = [];
+  for (const d of Array.isArray(o.decisions) ? o.decisions : []) {
+    const x = (d && typeof d === "object" ? d : {}) as Record<string, unknown>;
+    const quote = str(x.exact_quote) || str(x.summary);
+    if (!quote) continue;
+    const topic = (topicSet.has(str(x.topic)) ? str(x.topic) : "other") as TopicKey;
+    const key = `${topic}::${quote.toLowerCase()}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    decisions.push({
+      topic,
+      exact_quote: quote,
+      speaker: str(x.speaker, 120) || "Organizer",
+      said_at: str(x.said_at, 60),
+      summary: str(x.summary, 500) || quote,
+    });
+  }
+  const seenA = new Set<string>();
+  const actions: ExtractedAction[] = [];
+  for (const a of Array.isArray(o.actions) ? o.actions : []) {
+    const x = (a && typeof a === "object" ? a : {}) as Record<string, unknown>;
+    const title = str(x.title, 300) || str(x.source_quote, 300);
+    if (!title) continue;
+    const key = `${title.toLowerCase()}::${str(x.owner).toLowerCase()}`;
+    if (seenA.has(key)) continue;
+    seenA.add(key);
+    const lead = Number(x.reminder_lead_min);
+    actions.push({
+      title,
+      owner: str(x.owner, 120) || "Unassigned",
+      due_date: str(x.due_date, 120),
+      source_quote: str(x.source_quote) || title,
+      reminder_lead_min: Number.isFinite(lead) && lead > 0 ? Math.min(lead, 43200) : 1440,
+    });
+  }
+  const corrections = (Array.isArray(o.self_corrections) ? o.self_corrections : [])
+    .map((c) => (c && typeof c === "object" ? (c as Record<string, unknown>) : {}))
+    .map((c) => ({ original: str(c.original, 300), corrected_to: str(c.corrected_to, 300) }))
+    .filter((c) => c.original || c.corrected_to);
+  return {
+    cleaned_text: str(o.cleaned_text, 200_000),
+    self_corrections: corrections,
+    decisions,
+    actions,
+  };
 }
 

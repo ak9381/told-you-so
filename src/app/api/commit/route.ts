@@ -104,8 +104,8 @@ export async function POST(request: NextRequest) {
         meeting_id: meeting.id,
         meeting_seq: nextSeq,
         topic: d.topic || "other",
-        exact_quote: d.exact_quote,
-        speaker: d.speaker,
+        exact_quote: (d.exact_quote || "").toString().slice(0, 2000) || "(no quote)",
+        speaker: (d.speaker || "").toString().slice(0, 120) || "Organizer",
         said_at: d.said_at || "",
         status: "active",
       }));
