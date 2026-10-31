@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Masthead from "@/components/Masthead";
 import { formatSpokenTokens, TokenPart } from "@/lib/messySpeech";
 import { ExtractionResult, ExtractedDecision, ExtractedAction } from "@/lib/extractor";
@@ -17,7 +17,21 @@ const DEFAULT_PROJECTS: ProjectOption[] = [
 
 export default function HomePage() {
   const [selectedProjectId, setSelectedProjectId] = useState<string>("proj-hackathon");
+  const [projects, setProjects] = useState<ProjectOption[]>(DEFAULT_PROJECTS);
   const [activeTab, setActiveTab] = useState<"debrief" | "paste">("debrief");
+
+  // Load the real projects (with real UUIDs) so commits target valid rows.
+  useEffect(() => {
+    fetch("/api/projects")
+      .then((r) => r.json())
+      .then((d) => {
+        if (d.projects && d.projects.length > 0) {
+          setProjects(d.projects);
+          setSelectedProjectId(d.projects[0].id);
+        }
+      })
+      .catch(() => {});
+  }, []);
   const [rawInput, setRawInput] = useState<string>("");
   const [isProcessing, setIsProcessing] = useState<boolean>(false);
   const [result, setResult] = useState<ExtractionResult | null>(null);
@@ -39,7 +53,7 @@ export default function HomePage() {
     minute: "2-digit",
     hour12: true,
   });
-  const currentProjectName = DEFAULT_PROJECTS.find((p) => p.id === selectedProjectId)?.name || "Meeting";
+  const currentProjectName = projects.find((p) => p.id === selectedProjectId)?.name || "Meeting";
   const autoMeetingTitle = `${currentProjectName} #2 · ${formattedTime} IST`;
 
   async function handleExtract() {
@@ -145,7 +159,7 @@ export default function HomePage() {
               onChange={(e) => setSelectedProjectId(e.target.value)}
               className="border border-[#DDD3C1] bg-[#F4EFE6] px-3 py-1 font-mono text-sm text-[#1C1917] focus:outline-none focus:border-[#C0392B]"
             >
-              {DEFAULT_PROJECTS.map((p) => (
+              {projects.map((p) => (
                 <option key={p.id} value={p.id}>
                   {p.name}
                 </option>

@@ -1,5 +1,18 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createServerClient } from "@/lib/supabase";
+import { createClient } from "@supabase/supabase-js";
+
+// Resolve the signed-in user's real UUID from the auth cookie so new meetings
+// are owned under row-level security (middleware has already gated this route).
+async function resolveUserId(request: NextRequest): Promise<string | null> {
+  const token = request.cookies.get("sb-access-token")?.value;
+  const url = process.env.SUPABASE_URL;
+  const key = process.env.SUPABASE_ANON_KEY;
+  if (!token || !url || !key) return null;
+  const sb = createClient(url, key, { auth: { persistSession: false } });
+  const { data } = await sb.auth.getUser(token);
+  return data.user?.id ?? null;
+}
 
 export async function POST(request: NextRequest) {
   try {
@@ -21,6 +34,7 @@ export async function POST(request: NextRequest) {
     }
 
     const supabase = createServerClient();
+    const userId = await resolveUserId(request);
 
     // 1. Get next seq for project
     const { data: latestMeeting } = await supabase
@@ -38,6 +52,7 @@ export async function POST(request: NextRequest) {
       .from("meetings")
       .insert({
         project_id: projectId,
+        user_id: userId,
         seq: nextSeq,
         title: meetingTitle,
         source_type: sourceType || "debrief",
