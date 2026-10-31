@@ -47,5 +47,5 @@ yarn-error.log*
 *.tsbuildinfo
 next-env.d.ts
 
-.claude/
-.mcp.json
+# Claude Code: share project MCP servers, settings, and skills; keep personal local settings out
+.claude/settings.local.json
