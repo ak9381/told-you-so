@@ -10,6 +10,6 @@ The digest page per person shows what they own, what changed this week and open 
 - The build passes and the deploy succeeds with both cron triggers listed.
 - Confirm one action and check the Notion log shows filed, with a link.
 - Create a task due in three minutes and confirm the outbox flips from scheduled to sent and the email arrives.
-- Press send digest now for Priya and confirm an outbox row and an email.
+- Press send digest now for Harsh and confirm an outbox row and an email.
 
 ## Commit and push when green

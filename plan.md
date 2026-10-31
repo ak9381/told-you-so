@@ -1,3 +1,5 @@
+**Stages win over this file. Name is Told You So; Gemini cap 60/day, live check every 15 s; Resend only sends to the account email.**
+
 # PLAN v6 (final) — Product Space Agentic AI Hackathon, 31 Oct 2026
 v4 written 31 Oct ~2:10 PM IST; updated to v5 ~2:25 PM IST after rounds 5–6; **final v6 ~2:40 PM IST** after round 7 (end-to-end review, all 3 judges GO with a hard scope cut); **v6 + LIVE MEETING mode ~2:45 PM IST** (core, MB3); **+ project scoping ~2:50 PM IST** (core); **+ Cloudflare Workers hosting ~2:55 PM IST**; **+ every-minute reminders, outbox, tracker adapter, cron fixes ~3:00 PM IST**; **+ Google Meet live demo ~3:05 PM IST**; **+ 5-user limiter + refreshed checklist ~3:10 PM IST**. Originally written by Grok Bot (chair) after a 4-round council of Claude Code + Antigravity (agy). Build by Akash's voice only; nothing has been scaffolded.
 
@@ -114,6 +116,7 @@ Optional (cheap): **Share to WhatsApp** — `https://wa.me/?text=` link with the
 | 6:35–7:00 | Prompts 11–13: ledger + Notion best-effort log, tracker adapter, every-minute reminders + Monday digest on Cloudflare Cron Triggers (custom worker `scheduled()`), outbox page | **CORE FROZEN 7:00 + redeployed** |
 | 7:00–7:30 | Dinner; LinkedIn post 2 | Posted |
 | 7:30–9:00 | Hardening only: rehearse the Google Meet call (meeting 2) twice with the real participants on the deployed URL, run the full demo 3×, fix bugs, tighten prompts against eval, cache demo responses | Demo passes 3× |
+| 7:30–9:30 (parallel, stretch) | **Stage 9b: Connect Wispr Notetaker** (stages/stage-9b.md): OAuth+PKCE to Wispr MCP, cron pull every 5 min, auto-import as source "Wispr Notetaker", flag `WISPR_ENABLED`; drop if not working by 9:30 | Test meeting auto-imported |
 | 9:00–9:45 | Prompt 20 README + empty/loading states only. **Prompt 19 theme polish cut** (time went to LIVE mode) | No broken pages |
 | 9:45–10:30 | Full live run-through on the deployed URL incl. the 3-min reminder beat; logged-out check of every link. **Last deploy by 10:10 PM** (≥15 min before recording, so the cron is live) | Green; outbox shows a SENT row |
 | 10:30–11:00 | Record video (§6), upload to Drive (link sharing on) | Opens logged-out |

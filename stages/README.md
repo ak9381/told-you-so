@@ -13,6 +13,7 @@ Read each stage aloud with Wispr Flow into Antigravity, in order. Each one point
 | [8](stage-8.md) | 6:40–7:00 PM | Notion "Told You So Tasks", reminders, outbox, Monday digest, crons → **freeze** |
 | — | 7:00–7:30 PM | Dinner + LinkedIn post 2 |
 | [9](stage-9.md) | 7:30–10:10 PM | Hardening, README, final deploy by 10:10 |
+| [9b](stage-9b.md) | 7:30–9:30 PM (stretch) | **Connect Wispr Notetaker**: OAuth to Wispr MCP, auto-import meetings via cron every 5 min, behind `WISPR_ENABLED` |
 | — | 10:30–11:30 PM | Record video, Wispr screenshot, submit |
 | [10](stage-10.md) | after submitting | Optional extras |
 
