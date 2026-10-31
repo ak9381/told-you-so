@@ -149,6 +149,7 @@ export default function HomePage() {
   const [trace, setTrace] = useState<TraceStep[]>([]);
   const [refinements, setRefinements] = useState<Refinement[]>([]);
   const [agentPath, setAgentPath] = useState<string | null>(null);
+  const [verification, setVerification] = useState<Verification | null>(null);
   const [verdicts, setVerdicts] = useState<Record<number, string>>({});
   const [timeline, setTimeline] = useState<TimelineDecision[]>([]);
   const [view, setView] = useState<"Day" | "Week" | "Month" | "Year">("Week");
@@ -487,6 +488,7 @@ export default function HomePage() {
     setTrace([]);
     setRefinements([]);
     setAgentPath(null);
+    setVerification(null);
     setVerdicts({});
 
     const formatted = formatSpokenTokens(rawInput);
@@ -517,6 +519,7 @@ export default function HomePage() {
         setTrace(data.trace ?? []);
         setRefinements(data.refinements ?? []);
         setAgentPath(data.agentPath ?? null);
+        setVerification(data.verification ?? null);
         const decMap: Record<number, boolean> = {};
         data.extraction.decisions.forEach((_: unknown, i: number) => (decMap[i] = true));
         setCheckedDecisions(decMap);
@@ -1227,6 +1230,8 @@ export default function HomePage() {
             )}
           </div>
 
+          <VerifySummary verification={verification} />
+
           <div className="space-y-2.5 my-4">
             {result.actions.map((act, i) => (
               <label
@@ -1249,8 +1254,12 @@ export default function HomePage() {
                   <div className="text-[#9B9690] italic text-xs mt-0.5">
                     &ldquo;{act.source_quote}&rdquo;
                   </div>
+                  <VerifyReason verification={verification} kind="action" index={i} />
                 </div>
-                <Chip tone="neutral">action</Chip>
+                <div className="flex flex-col items-end gap-1 shrink-0">
+                  <Chip tone="neutral">action</Chip>
+                  <VerifyChip verification={verification} kind="action" index={i} />
+                </div>
               </label>
             ))}
             {result.decisions.map((dec, i) => (
@@ -1271,8 +1280,12 @@ export default function HomePage() {
                   <div className="text-[#9B9690] italic text-xs mt-0.5">
                     &ldquo;{dec.exact_quote}&rdquo; — {dec.speaker}
                   </div>
+                  <VerifyReason verification={verification} kind="decision" index={i} />
                 </div>
-                <Chip tone="neutral">{dec.topic.replace(/_/g, " ")}</Chip>
+                <div className="flex flex-col items-end gap-1 shrink-0">
+                  <Chip tone="neutral">{dec.topic.replace(/_/g, " ")}</Chip>
+                  <VerifyChip verification={verification} kind="decision" index={i} />
+                </div>
               </label>
             ))}
           </div>
@@ -1323,5 +1336,79 @@ export default function HomePage() {
         </Card>
       )}
     </AppShell>
+  );
+}
+
+// ---- #5 Extraction verification (second Gemini pass) ------------------------
+interface ItemCheck {
+  kind: "decision" | "action";
+  index: number;
+  confidence: number;
+  quote_found: boolean;
+  reason: string;
+}
+interface Verification {
+  status: "verified" | "not_verified";
+  reason?: string;
+  overall: number | null;
+  items: ItemCheck[];
+  missed: string[];
+}
+const LOW_CONFIDENCE = 0.7;
+
+function findCheck(v: Verification | null, kind: ItemCheck["kind"], index: number) {
+  return v?.items.find((c) => c.kind === kind && c.index === index);
+}
+
+function VerifyChip({ verification, kind, index }: { verification: Verification | null; kind: ItemCheck["kind"]; index: number }) {
+  if (!verification) return null;
+  const c = findCheck(verification, kind, index);
+  if (verification.status !== "verified" || !c) {
+    return (
+      <span className="text-[11px] px-2 py-0.5 rounded-full bg-[#F1F0EC] text-[#9B9690]" title={verification.reason || "Not verified"}>
+        not verified
+      </span>
+    );
+  }
+  const pct = Math.round(c.confidence * 100);
+  const low = c.confidence < LOW_CONFIDENCE;
+  return (
+    <span
+      className={`text-[11px] px-2 py-0.5 rounded-full whitespace-nowrap ${low ? "bg-[#FBE9E7] text-[#C0392B]" : "bg-[#E6F3EC] text-[#1C7A4A]"}`}
+      aria-label={`${pct}% matches the transcript`}
+    >
+      {pct}% matches transcript
+    </span>
+  );
+}
+
+function VerifyReason({ verification, kind, index }: { verification: Verification | null; kind: ItemCheck["kind"]; index: number }) {
+  const c = findCheck(verification, kind, index);
+  if (!c || c.confidence >= LOW_CONFIDENCE) return null;
+  return (
+    <div role="note" className="mt-1.5 text-xs rounded-lg bg-[#FBE9E7] text-[#C0392B] px-2 py-1">
+      ⚠ Check this one{c.quote_found ? "" : " — quote not found in the text"}
+      {c.reason ? `: ${c.reason}` : "."}
+    </div>
+  );
+}
+
+function VerifySummary({ verification }: { verification: Verification | null }) {
+  if (!verification) return null;
+  if (verification.status !== "verified" || verification.overall == null) {
+    return (
+      <p className="text-xs text-[#9B9690] mt-2">
+        Not verified against the transcript{verification.reason ? ` (${verification.reason})` : ""}. You can still confirm.
+      </p>
+    );
+  }
+  const pct = Math.round(verification.overall * 100);
+  return (
+    <div className="mt-2 text-xs text-[#6B6560]">
+      <span className="font-medium">Checked against the source: {pct}% overall.</span>
+      {verification.missed.length > 0 && (
+        <span> Possibly missed: {verification.missed.slice(0, 3).join("; ")}.</span>
+      )}
+    </div>
   );
 }

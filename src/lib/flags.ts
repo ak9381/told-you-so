@@ -9,6 +9,9 @@ export const flags = {
   politeCards: process.env.NEXT_PUBLIC_FLAG_POLITE_CARDS === "true",
   // #4: log every verdict click to a table (logging only).
   logVerdicts: process.env.FLAG_LOG_VERDICTS === "true",
+  // #5: second Gemini pass that fact-checks each extracted item against the
+  // source text (per-item confidence shown in the confirmation tray).
+  verifyExtraction: process.env.FLAG_VERIFY_EXTRACTION === "true",
 };
 
 export const CONFIDENCE_THRESHOLD = 0.85;

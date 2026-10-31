@@ -4,6 +4,8 @@ import { extractMeetingItems, ExtractionError } from "@/lib/extractor";
 import { runAgent, type AgentResult } from "@/lib/agent";
 import { requireUser, readJson, canAccessProject, jsonError } from "@/lib/api-guard";
 import { createServerClient } from "@/lib/supabase";
+import { flags } from "@/lib/flags";
+import { verifyExtraction, type Verification } from "@/lib/verifier";
 
 const MAX_RAW_CHARS = 200_000;
 
@@ -50,15 +52,19 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Conflict-detection agent (MB3): check extracted decisions against memory.
-    let agent: AgentResult | null = null;
-    if (projectId && extraction.decisions.length > 0) {
-      try {
-        agent = await runAgent(extraction.decisions, projectId);
-      } catch (e) {
-        console.error("Agent error:", e);
-      }
-    }
+    // Conflict-detection agent (MB3) and extraction verification (#5) run in
+    // parallel; neither may block the tray.
+    const agentP: Promise<AgentResult | null> =
+      typeof projectId === "string" && extraction.decisions.length > 0
+        ? runAgent(extraction.decisions, projectId).catch((e) => {
+            console.error("Agent error:", e);
+            return null;
+          })
+        : Promise.resolve(null);
+    const verifyP: Promise<Verification | null> = flags.verifyExtraction
+      ? verifyExtraction(rawText, extraction, userId)
+      : Promise.resolve(null);
+    const [agent, verification] = await Promise.all([agentP, verifyP]);
 
     return NextResponse.json({
       ok: true,
@@ -71,6 +77,7 @@ export async function POST(request: NextRequest) {
       refinements: agent?.refinements ?? [],
       trace: agent?.trace ?? [],
       agentPath: agent?.path ?? null,
+      verification,
     });
   } catch (error) {
     console.error("Ingest error:", error);
