@@ -67,11 +67,27 @@ export default function LedgerPage() {
   }, [load]);
 
   async function setStatus(id: string, status: string) {
-    await fetch("/api/ledger", {
+    setMsg("");
+    const r = await fetch("/api/ledger", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ actionId: id, status }),
     });
+    const d = await r.json().catch(() => ({}));
+    if (d.notionSynced) setMsg("Status updated — synced to Notion ✓");
+    else if (d.notionError) setMsg(`Status updated (Notion sync failed: ${d.notionError})`);
+    load();
+  }
+
+  async function fileToNotion(id: string) {
+    setMsg("Filing to Notion…");
+    const r = await fetch("/api/ledger", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ actionId: id, fileNotion: true }),
+    });
+    const d = await r.json().catch(() => ({}));
+    setMsg(d.ok ? "Filed in Notion ✓" : `Notion filing failed: ${d.error || "unknown"}`);
     load();
   }
 
@@ -112,11 +128,20 @@ export default function LedgerPage() {
         Tasks
       </PageTitle>
 
-      <p className="text-[#6B6560] -mt-4 mb-8 max-w-2xl">
+      <p className="text-[#6B6560] -mt-4 mb-4 max-w-2xl">
         Every action item we extracted from your meetings — each one is{" "}
         <strong className="font-medium text-[#1A1715]">filed into your Notion database</strong> and
-        gets a reminder email before it&rsquo;s due. Mark them open / done / blocked here.
+        gets a reminder email before it&rsquo;s due. Status changes here sync to Notion. Mark them
+        open / done / blocked below.
       </p>
+      <div className="mb-8 inline-flex items-center gap-2 rounded-lg bg-[#FFF8E6] border border-[#F0E3B8] px-3.5 py-2 text-sm text-[#7A6A2F]">
+        <span>✉️</span>
+        <span>
+          Demo note: all reminder emails are delivered to{" "}
+          <strong className="font-semibold">ak9381@nyu.edu</strong> (the recipient&rsquo;s name is in
+          the subject). A verified sending domain would email each owner directly.
+        </span>
+      </div>
 
       <div className="space-y-3 mb-10">
         {actions.length === 0 && (
@@ -154,7 +179,12 @@ export default function LedgerPage() {
                     ↗ open in Notion
                   </a>
                 ) : (
-                  <Chip tone="neutral">not in Notion</Chip>
+                  <button
+                    onClick={() => fileToNotion(a.id)}
+                    className="inline-flex items-center gap-1 rounded-md border border-[#E0DED8] bg-white px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-[#6B6560] hover:border-[#1A1715] hover:text-[#1A1715] transition-colors"
+                  >
+                    ↗ Send to Notion
+                  </button>
                 )}
               </div>
             </div>

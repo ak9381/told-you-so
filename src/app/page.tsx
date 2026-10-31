@@ -1165,7 +1165,8 @@ export default function HomePage() {
             <div>
               <h4 className="font-serif text-xl text-[#1A1715]">Confirmation tray</h4>
               <p className="text-xs text-[#9B9690]">
-                Nothing is saved or sent to Notion until you tick and confirm.
+                Nothing is saved or sent to Notion until you tick and confirm. Confirmed tasks file
+                to Notion; reminder emails go to <strong className="font-medium text-[#6B6560]">ak9381@nyu.edu</strong> for the demo.
               </p>
             </div>
             {committedStatus && (
