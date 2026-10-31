@@ -1,3 +1,4 @@
+import { getCachedDemoExtraction } from "@/lib/demo-cache";
 import { fetchWithRetry } from "@/lib/http";
 import { checkAndIncrementUsage } from "./usage";
 
@@ -131,7 +132,8 @@ const GEMINI_MODEL = "gemini-3.5-flash-lite";
 export async function extractMeetingItems(
   rawText: string,
   userId: string,
-  currentUserName = "Akash"
+  currentUserName = "Akash",
+  opts: { skipCache?: boolean; skipUsage?: boolean } = {}
 ): Promise<ExtractionResult> {
   const geminiApiKey = process.env.GEMINI_API_KEY;
   if (!geminiApiKey) {
@@ -141,9 +143,16 @@ export async function extractMeetingItems(
     );
   }
 
+  // Known demo inputs are served from the pre-recorded cache: instant, and
+  // they don't count toward the daily AI cap.
+  if (!opts.skipCache && process.env.FLAG_DEMO_CACHE !== "off") {
+    const cached = await getCachedDemoExtraction(rawText, currentUserName);
+    if (cached) return cached;
+  }
+
   // Check usage limiter — over the cap we stop and tell the user; we do NOT
   // quietly return canned output.
-  const usage = await checkAndIncrementUsage(userId, false);
+  const usage = opts.skipUsage ? { allowed: true as const } : await checkAndIncrementUsage(userId, false);
   if (!usage.allowed) {
     if (usage.reason === "usage_unavailable") {
       throw new ExtractionError("api_error", "Couldn't check your AI usage right now. Please try again in a minute.");

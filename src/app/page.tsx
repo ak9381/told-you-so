@@ -1,5 +1,6 @@
 "use client";
 
+import { DEMO_CLIPS, clipTranscript } from "@/lib/demo-clips";
 import { useState, useEffect, useRef, useCallback } from "react";
 import AppShell from "@/components/AppShell";
 import { Card, SectionTitle, Chip, PrimaryButton, SecondaryButton } from "@/components/ui";
@@ -68,23 +69,6 @@ interface LiveCard {
 }
 
 // Mic-free demo scripts, per project (safety net for the live demo).
-const DEMO_CLIPS: Record<string, { speaker: string; text: string }[]> = {
-  "Hackathon submission": [
-    { speaker: "Akash", text: "Okay everyone, quick sync on the hackathon submission." },
-    { speaker: "Rohan", text: "I think the demo video can be like five minutes, we have a lot to show." },
-    { speaker: "Akash", text: "And the LinkedIn posts we can do by Monday, right?" },
-    { speaker: "Neha", text: "Let's submit by 11 PM tonight to be safe." },
-    { speaker: "Akash", text: "Decided: Priya owns the demo video, due 10:30 tonight." },
-    { speaker: "Akash", text: "Okay, ending the meeting." },
-  ],
-  "Fintech recon dashboard": [
-    { speaker: "Akash", text: "Welcome Ankit, quick sync on the dashboard." },
-    { speaker: "Ankit", text: "Why are we on Postgres? Mongo is faster for dashboards, let's switch." },
-    { speaker: "Ankit", text: "And let's just do polling, webhooks are overkill for an MVP." },
-    { speaker: "Ankit", text: "Clerk for auth is fine by me, maybe with Google login only." },
-    { speaker: "Akash", text: "Decided: Ankit owns the dashboard read-model spec, due Tuesday." },
-  ],
-};
 const DEFAULT_CLIP = DEMO_CLIPS["Hackathon submission"];
 
 // Turn a pasted Google Meet / Zoom URL into a browser-joinable URL.
@@ -363,7 +347,7 @@ export default function HomePage() {
   // End the live meeting: pour the transcript into the tray via the full agent.
   function endLiveMeeting() {
     stopListening();
-    const transcript = liveLines.map((l) => `${l.speaker}: ${l.text}`).join("\n");
+    const transcript = clipTranscript(liveLines);
     if (!transcript.trim()) return;
     setActiveTab("paste");
     setRawInput(transcript);
