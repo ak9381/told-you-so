@@ -25,6 +25,14 @@ ALLOWED_EMAILS=
 
 # Feature flags
 FLAG_CONFIDENCE=false
+# Part 2 blended confidence (self-consistency + optional embeddings + rule signal)
+FLAG_CONFIDENCE_BLEND=false
+CONF_SAMPLES=3            # 1-5, each sample counts against the 60/day cap
+CONF_THRESHOLD=0.85       # >= red objection
+CONF_MAYBE_FLOOR=0.4      # [floor, threshold) grey maybe; below = suppressed
+CONF_USE_EMBEDDINGS=false # +1 embedding call per verify
+# CONF_W_AGREEMENT=0.6 CONF_W_COSINE=0.25 CONF_W_RULE=0.15 CONF_SAMPLE_TEMPERATURE=0.4
+AGENT_MAX_AI_VERIFY_CALLS=12
 FLAG_FINTECH=false
 FLAG_LOG_VERDICTS=false
 NEXT_PUBLIC_FLAG_POLITE_CARDS=false

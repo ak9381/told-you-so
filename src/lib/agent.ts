@@ -4,6 +4,7 @@ import { fetchWithRetry } from "@/lib/http";
 import { createServerClient } from "./supabase";
 import { ExtractedDecision } from "./extractor";
 import { flags, CONFIDENCE_THRESHOLD } from "./flags";
+import { blendConfidence, confidenceConfig, cosine, ruleSignal, tierFor } from "./confidence";
 
 const GEMINI_MODEL = "gemini-3.5-flash-lite";
 
@@ -189,11 +190,81 @@ export function deterministicVerify(
  * topic, using the refinement rule. Returns which prior decision is contradicted
  * (or refined), so the objection cites the right receipt.
  */
+interface SampleOut {
+  verdict: Verdict;
+  matchIndex: number;
+  confidence: number;
+  reasoning: string;
+}
+
+async function geminiVerifyOnce(prompt: string, key: string, temperature: number, nCandidates: number): Promise<SampleOut> {
+  const res = await fetchWithRetry(
+    `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${key}`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        contents: [{ parts: [{ text: prompt }] }],
+        generationConfig: { responseMimeType: "application/json", temperature },
+      }),
+    }
+  );
+  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  const data = await res.json();
+  const text = data?.candidates?.[0]?.content?.parts?.[0]?.text;
+  const parsed = JSON.parse(text);
+  const verdict = String(parsed.verdict || "").toLowerCase() as Verdict;
+  const norm: Verdict =
+    verdict === "contradicts" || verdict === "refines" || verdict === "unrelated" ? verdict : "unrelated";
+  const matchNum = Number(parsed.match) || 0;
+  return {
+    verdict: norm,
+    matchIndex: matchNum >= 1 && matchNum <= nCandidates ? matchNum - 1 : 0,
+    confidence: typeof parsed.confidence === "number" ? Math.max(0, Math.min(1, parsed.confidence)) : 0.9,
+    reasoning: String(parsed.reasoning || ""),
+  };
+}
+
+/** Optional semantic signal: embed both statements and take the cosine. */
+async function embeddingCosine(a: string, b: string, key: string): Promise<number | null> {
+  const model = process.env.GEMINI_EMBED_MODEL || "gemini-embedding-001";
+  try {
+    const res = await fetchWithRetry(
+      `https://generativelanguage.googleapis.com/v1beta/models/${model}:batchEmbedContents?key=${key}`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          requests: [a, b].map((t) => ({
+            model: `models/${model}`,
+            content: { parts: [{ text: t }] },
+            outputDimensionality: 768,
+          })),
+        }),
+      },
+      { timeoutMs: 8_000, retries: 0, label: "gemini-embed" }
+    );
+    if (!res.ok) return null;
+    const data = await res.json();
+    const [ea, eb] = (data?.embeddings ?? []).map((e: { values?: number[] }) => e.values ?? []);
+    return ea && eb ? cosine(ea, eb) : null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * verify_conflict: strict, independent check against ALL prior decisions on the
+ * topic, using the refinement rule. With FLAG_CONFIDENCE_BLEND the confidence is
+ * a blend of self-consistency (N samples), optional embedding cosine and a rule
+ * signal (see lib/confidence.ts); otherwise the single self-reported number.
+ */
 async function verifyConflict(
   candidates: MemoryDecision[],
   item: ExtractedDecision,
   topic: string,
-  allowGemini = true
+  allowGemini = true,
+  userId?: string
 ): Promise<VerifyOutput> {
   const key = process.env.GEMINI_API_KEY;
   if (!key || !allowGemini) return deterministicVerify(candidates, item, topic);
@@ -215,35 +286,47 @@ Decide the relationship between the NEW statement and the MOST RELEVANT prior de
 
 Return ONLY JSON: {"verdict":"CONTRADICTS|REFINES|UNRELATED","match":<the [number] of the most relevant prior decision, or 0 if none>,"confidence":<a number 0..1 for how sure you are this is a real contradiction>,"reasoning":"one short sentence"}`;
 
+  const cfg = confidenceConfig();
   try {
-    const res = await fetchWithRetry(
-      `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${key}`,
-      {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          contents: [{ parts: [{ text: prompt }] }],
-          generationConfig: { responseMimeType: "application/json", temperature: 0 },
-        }),
+    if (!cfg.blend) {
+      const one = await geminiVerifyOnce(prompt, key, 0, candidates.length);
+      return { ...one, usedGemini: true };
+    }
+    // Self-consistency: the first sample was already counted by the caller;
+    // every extra sample counts against the daily cap and stops at the cap.
+    const samples: SampleOut[] = [await geminiVerifyOnce(prompt, key, cfg.temperature, candidates.length)];
+    for (let i = 1; i < cfg.samples; i++) {
+      if (userId && !(await checkAndIncrementUsage(userId, false)).allowed) break;
+      try {
+        samples.push(await geminiVerifyOnce(prompt, key, cfg.temperature, candidates.length));
+      } catch (e) {
+        log.warn("self-consistency sample failed", e instanceof Error ? e.message : e);
+        break;
       }
+    }
+    const count = (v: Verdict) => samples.filter((x) => x.verdict === v).length;
+    const verdict: Verdict = (["contradicts", "refines", "unrelated"] as Verdict[]).reduce((best, v) =>
+      count(v) > count(best) ? v : best
     );
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    const data = await res.json();
-    const text = data?.candidates?.[0]?.content?.parts?.[0]?.text;
-    const parsed = JSON.parse(text);
-    const verdict = String(parsed.verdict || "").toLowerCase() as Verdict;
-    const norm: Verdict =
-      verdict === "contradicts" || verdict === "refines" || verdict === "unrelated"
-        ? verdict
-        : "unrelated";
-    const matchNum = Number(parsed.match) || 0;
-    const matchIndex =
-      matchNum >= 1 && matchNum <= candidates.length ? matchNum - 1 : 0;
-    const confidence =
-      typeof parsed.confidence === "number"
-        ? Math.max(0, Math.min(1, parsed.confidence))
-        : 0.9;
-    return { verdict: norm, matchIndex, confidence, reasoning: parsed.reasoning || "", usedGemini: true };
+    const lead = samples.find((x) => x.verdict === verdict) ?? samples[0];
+    const agreement = count("contradicts") / samples.length;
+    const prior = candidates[lead.matchIndex] ?? candidates[0];
+    let cos: number | null = null;
+    if (cfg.useEmbeddings && (!userId || (await checkAndIncrementUsage(userId, false)).allowed)) {
+      cos = await embeddingCosine(item.exact_quote, prior.exact_quote, key);
+    }
+    const rule = ruleSignal(topic, `${item.exact_quote} ${item.summary}`, prior.exact_quote);
+    const confidence = blendConfidence({ agreement, cosine: cos, rule }, cfg.weights);
+    const why = `${Math.round(agreement * 100)}% of ${samples.length} checks said contradicts` +
+      (cos !== null ? `, similarity ${cos.toFixed(2)}` : "") +
+      (rule !== null ? `, rule signal ${rule}` : "");
+    return {
+      verdict,
+      matchIndex: lead.matchIndex,
+      confidence,
+      reasoning: `${lead.reasoning} (${why})`,
+      usedGemini: true,
+    };
   } catch (e) {
     log.warn("verify_conflict fell back to deterministic:", e instanceof Error ? e.message : e);
     return deterministicVerify(candidates, item, topic);
@@ -299,7 +382,7 @@ export async function runAgent(
     if (!withinBudget) offlineOnly += 1;
     const allowGemini = withinBudget && (userId ? (await checkAndIncrementUsage(userId, false)).allowed : true);
     if (allowGemini) aiCalls += 1;
-    const v = await verifyConflict(candidates, dec, dec.topic, allowGemini);
+    const v = await verifyConflict(candidates, dec, dec.topic, allowGemini, userId);
     if (!v.usedGemini) path = "fallback";
     const prior = candidates[v.matchIndex] ?? candidates[0];
     trace.push({
@@ -310,11 +393,22 @@ export async function runAgent(
       reasoning: v.reasoning,
     });
 
-    if (v.verdict === "contradicts") {
+    const cfg = confidenceConfig();
+    if (v.verdict === "contradicts" && cfg.blend && v.usedGemini && tierFor(v.confidence, cfg) === "suppressed") {
+      // Part 2 three-tier UX: too weak to show at all.
+      trace.push({
+        step: step + 1,
+        tool: "queue_action",
+        input: `suppressed on "${dec.topic}" (${Math.round(v.confidence * 100)}% conf)`,
+        output: "SUPPRESSED",
+        reasoning: `Below the ${Math.round(cfg.maybeFloor * 100)}% floor — not shown.`,
+      });
+    } else if (v.verdict === "contradicts") {
       // #1: with the confidence flag on, only >= threshold becomes a red card;
       // below that it is a grey "maybe a conflict". Flag off = always red.
       // B4: a deterministic (non-AI) verdict is never a red card.
-      const isHigh = v.usedGemini && (!flags.confidence || v.confidence >= CONFIDENCE_THRESHOLD);
+      const threshold = cfg.blend ? cfg.threshold : CONFIDENCE_THRESHOLD;
+      const isHigh = v.usedGemini && (!(flags.confidence || cfg.blend) || v.confidence >= threshold);
       step += 1;
       if (isHigh) {
         objections.push({
@@ -333,12 +427,12 @@ export async function runAgent(
             summary: dec.summary,
             itemIndex,
           },
-          confidence: flags.confidence ? v.confidence : undefined,
+          confidence: flags.confidence || cfg.blend ? v.confidence : undefined,
         });
         trace.push({
           step,
           tool: "queue_action",
-          input: flags.confidence
+          input: flags.confidence || cfg.blend
             ? `objection on "${dec.topic}" (${Math.round(v.confidence * 100)}% conf)`
             : `objection on "${dec.topic}"`,
           output: "OBJECTION queued",
