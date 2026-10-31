@@ -78,6 +78,7 @@ export async function POST(request: NextRequest) {
       refinements: agent?.refinements ?? [],
       trace: agent?.trace ?? [],
       agentPath: agent?.path ?? null,
+      agentNotes: agent?.notes ?? [],
       verification,
     });
   } catch (error) {

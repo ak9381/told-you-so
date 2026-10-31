@@ -13,7 +13,10 @@ const GEMINI_MODEL = "gemini-3.5-flash-lite";
 // This is more reliable for a live demo than LLM-driven function-calling, and it
 // falls back to a deterministic check if Gemini errors or is rate-limited.
 
-const MAX_DECISIONS = 8; // cap Gemini verify calls to respect the 15 RPM free tier
+// B2: every decision is conflict-checked. Gemini verify calls per ingest are
+// budgeted (free-tier RPM); decisions past the budget get the conservative
+// offline check (grey "maybe" at most) and the user is told how many.
+export const MAX_AI_VERIFY_CALLS = Math.max(1, Number(process.env.AGENT_MAX_AI_VERIFY_CALLS) || 12);
 
 export interface MemoryDecision {
   id: string;
@@ -79,6 +82,8 @@ export interface AgentResult {
   refinements: Refinement[];
   trace: TraceStep[];
   path: "agent" | "fallback";
+  /** User-facing notes, e.g. how many decisions got only the offline check. */
+  notes?: string[];
 }
 
 type Verdict = "contradicts" | "refines" | "unrelated";
@@ -260,21 +265,18 @@ export async function runAgent(
   let path: "agent" | "fallback" = "agent";
   let step = 0;
 
-  const toCheck = decisions.slice(0, MAX_DECISIONS);
-  if (decisions.length > MAX_DECISIONS) {
-    trace.push({
-      step: 0,
-      tool: "search_memory",
-      input: `${decisions.length} decisions`,
-      output: `checked first ${MAX_DECISIONS}`,
-      reasoning: `Only the first ${MAX_DECISIONS} decisions were conflict-checked (rate limit). All ${decisions.length} are still in the tray and will be saved.`,
-    });
-  }
-
-  for (const dec of toCheck) {
+  const notes: string[] = [];
+  let aiCalls = 0;
+  let offlineOnly = 0;
+  const memoryByTopic = new Map<string, MemoryDecision[]>();
+  for (const dec of decisions) {
     // 1. search_memory
     step += 1;
-    const candidates = await searchMemory(projectId, dec.topic);
+    let candidates = memoryByTopic.get(dec.topic);
+    if (!candidates) {
+      candidates = await searchMemory(projectId, dec.topic);
+      memoryByTopic.set(dec.topic, candidates);
+    }
     trace.push({
       step,
       tool: "search_memory",
@@ -291,7 +293,10 @@ export async function runAgent(
     step += 1;
     // Every Gemini call counts toward the per-user daily cap; over the cap we
     // fall back to the deterministic check instead of failing.
-    const allowGemini = userId ? (await checkAndIncrementUsage(userId, false)).allowed : true;
+    const withinBudget = aiCalls < MAX_AI_VERIFY_CALLS;
+    if (!withinBudget) offlineOnly += 1;
+    const allowGemini = withinBudget && (userId ? (await checkAndIncrementUsage(userId, false)).allowed : true);
+    if (allowGemini) aiCalls += 1;
     const v = await verifyConflict(candidates, dec, dec.topic, allowGemini);
     if (!v.usedGemini) path = "fallback";
     const prior = candidates[v.matchIndex] ?? candidates[0];
@@ -365,5 +370,11 @@ export async function runAgent(
     }
   }
 
-  return { objections, maybes, refinements, trace, path };
+  if (offlineOnly > 0) {
+    const note = `${offlineOnly} decision(s) were past the AI check limit for one ingest (${MAX_AI_VERIFY_CALLS}) and got only the offline check — possible conflicts there show as grey "maybe", never red.`;
+    notes.push(note);
+    trace.push({ step: step + 1, tool: "verify_conflict", input: `${decisions.length} decisions`, output: `${offlineOnly} offline-only`, reasoning: note });
+  }
+
+  return { objections, maybes, refinements, trace, path, notes };
 }

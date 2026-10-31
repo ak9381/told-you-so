@@ -141,6 +141,7 @@ export default function HomePage() {
   const [trace, setTrace] = useState<TraceStep[]>([]);
   const [refinements, setRefinements] = useState<Refinement[]>([]);
   const [agentPath, setAgentPath] = useState<string | null>(null);
+  const [agentNotes, setAgentNotes] = useState<string[]>([]);
   const [verification, setVerification] = useState<Verification | null>(null);
   const [verdicts, setVerdicts] = useState<Record<number, string>>({});
   const [timeline, setTimeline] = useState<TimelineDecision[]>([]);
@@ -518,6 +519,7 @@ export default function HomePage() {
         setTrace(data.trace ?? []);
         setRefinements(data.refinements ?? []);
         setAgentPath(data.agentPath ?? null);
+        setAgentNotes(data.agentNotes ?? []);
         setVerification(data.verification ?? null);
         const decMap: Record<number, boolean> = {};
         data.extraction.decisions.forEach((_: unknown, i: number) => (decMap[i] = true));
@@ -1239,6 +1241,11 @@ export default function HomePage() {
           </div>
 
           <VerifySummary verification={verification} />
+          {agentNotes.map((n) => (
+            <p key={n} role="status" className="text-xs text-[#8A6D3B] mb-2">
+              {n}
+            </p>
+          ))}
 
           <div className="space-y-2.5 my-4">
             {result.actions.map((act, i) => (
