@@ -1,18 +1,31 @@
-# Told You So — Environment Variables Example
-# Keep all actual secrets in .dev.vars (which is ignored by Git). Never commit real secrets.
+# Told You So — environment variables (example)
+# Keep real secrets in .dev.vars (git-ignored) and as Worker secrets. Never commit real values.
 
+# AI
 GEMINI_API_KEY=
-SUPABASE_URL=
-SUPABASE_ANON_KEY=
-SUPABASE_SERVICE_KEY=
-NOTION_TOKEN=
-NOTION_DB_ID=
-RESEND_API_KEY=
-RESEND_FROM=
-CRON_SECRET=
-ALLOWED_EMAILS=
 GEMINI_DAILY_CAP=60
 
+# Supabase (server — service role key must NEVER be NEXT_PUBLIC_)
+SUPABASE_URL=
+SUPABASE_SERVICE_ROLE_KEY=
+# Supabase (browser — anon key only)
+NEXT_PUBLIC_SUPABASE_URL=
+NEXT_PUBLIC_SUPABASE_ANON_KEY=
+
+# Integrations
+NOTION_TOKEN=
+NOTION_DATABASE_ID=
+RESEND_API_KEY=
+RESEND_FROM=
+RESEND_OWNER_EMAIL=
+
+# Auth / crons
+CRON_SECRET=
+ALLOWED_EMAILS=
 
 # Feature flags
+FLAG_CONFIDENCE=false
+FLAG_FINTECH=false
+FLAG_LOG_VERDICTS=false
+NEXT_PUBLIC_FLAG_POLITE_CARDS=false
 FLAG_VERIFY_EXTRACTION=true

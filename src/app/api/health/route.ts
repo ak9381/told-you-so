@@ -13,7 +13,7 @@ export async function GET() {
     configured: {
       supabase: has("SUPABASE_URL") && has("SUPABASE_SERVICE_ROLE_KEY"),
       gemini: has("GEMINI_API_KEY"),
-      notion: has("NOTION_API_KEY") || has("NOTION_TOKEN"),
+      notion: has("NOTION_TOKEN") && has("NOTION_DATABASE_ID"),
       resend: has("RESEND_API_KEY"),
       cron: has("CRON_SECRET"),
     },
