@@ -65,26 +65,39 @@ Checks: `tsc`, `next lint`, `npm test` (24/24) and `npm run build` all pass.
 
 **No new migrations in round 3.** Only 004 and 005 must run before deploy.
 
-## Future work (Part 3, not started)
-- F1: `activity_log` table + per-project Activity tab.
+## Round 4 (Antigravity) (1 Nov 2026, 01:35–01:55 IST)
+Addressed all items from `stages/agy-brief.md`:
+
+| Commit | Item | Fix & Impact |
+|---|---|---|
+| `04e8006` | Speed 1: Middleware | Avoid Supabase network round-trip on every request. `updateSession` reads session locally from cookies with `getSession()` (<1ms) instead of `getUser()` (~400–800ms HTTPS round-trip to Supabase). Proactively refreshes session via `refreshSession()` only near token expiry (< 5 min). Added per-request user lookup caching via `requestUserCache` (`WeakMap<NextRequest, Promise<User>>`) for route handlers and React `cache()` for server components. API routes continue to verify auth with `requireUser()`. |
+| `9808191` | Speed 2: Fetch waterfalls | Removed fetch waterfalls across Home and Tasks/Ledger. Client project lookups are deduplicated and cached via `fetchProjectsClient()` singleton promise (`src/lib/client-cache.ts`), eliminating concurrent duplicate `/api/projects` calls between AppShell and pages. Home parallelizes `/api/projects` and `/api/timeline` via `Promise.all` when a project ID is known. Ledger loads `/api/ledger` and `/api/people` concurrently via `Promise.all`. |
+| `d2d3119` | Speed 3: Static pages & Skeletons | Render `/welcome` and `/login` as static pages (`export const dynamic = "force-static"`), splitting `LoginForm` into a client component under `<Suspense>`. Replaced raw "Loading..." text with animated skeleton loading components on Home (decision history card), Tasks (table rows + team member pills), and Reminders (outbox table rows), eliminating layout shifts and perceived lag. |
+| `d793caa` | Speed 4: Column pruning & Indexes | Pruned over-fetching queries: `/api/outbox` now selects only needed metadata columns (`id, type, person_name, subject, scheduled_at, sent_at, channel, status, error, resend_id`), omitting large HTML email bodies; `/api/commit` meetings insert selects only `"id"` rather than echoing back massive 200k character `raw_text`. Wrote `supabase/migrations/006_indexes_and_performance.sql` adding indexes on `project_id` (`actions`, `objections`, `decisions`, `meetings`), `user_id` (`projects`, `meetings`, `verdict_logs`, `activity_log`), and `meeting_date` (`meetings(meeting_date)`, `meetings(project_id, meeting_date desc)`). |
+| `91c4d4f` | GROKBOT-REVIEW F1: Activity Log | Added unified `activity_log` table in migration 006 with RLS policies, `src/lib/activity.ts` with fail-open `logActivity()` helper, and `GET /api/activity` endpoint. Wired activity logging across `commit` (`decision_saved`), `ledger` (`task_status`, `task_reassigned`, `task_removed`), `projects` (`project_created`), and `people` (`member_added`). |
+| `0c26bd4` | Client logging & review spec | Replaced all client-side `console.error` calls with structured JSON logging (`log.error` from `@/lib/log`) across AppShell, Home, Tasks, and Reminders. Tracked `GROKBOT-REVIEW.md` in repository. |
+
+## Future work (Part 3, remaining items)
 - F2: per-user Notion OAuth.
 - F3: WhatsApp/Slack/Gmail source connectors; Gmail send also fixes B8 (one inbox).
 - F4: a real Eval (offline labelled set + live precision from verdict_logs).
 - B9: speaker diarization.
-- Confidence calibration.
+- Confidence calibration (Platt/isotonic regression on accumulated verdict_logs).
 - Storing `decisions.embedding` at commit time so the cosine signal can use pgvector instead of on-the-fly embedding.
 
 ## Still open
-- **Migrations 004 and 005 are NOT applied.** Until 005 runs, the people and meeting_date code will error against the live DB (missing column). **Apply 004 and then 005 before deploying this branch.**
+- **Migrations 004, 005, and 006 are NOT applied.** Until 005 and 006 run, people/meeting_date/activity_log columns and indexes are pending. **Apply 004, 005, and then 006 before deploying this branch.**
 - **The demo cache is empty** (`{}`) because generating it needs the Gemini key. See manual step 3.
 - **The rate limit is per Worker isolate.** For a hard global limit, add a Cloudflare Rate Limiting rule on `/api/*` POST.
 - **Legacy rows with `user_id IS NULL`** (projects) and **`project_id IS NULL`** (people) are still visible to every allowlisted user. Backfill them, then tighten `canAccessProject` and the people `project_id.is.null` fallback.
-- No live evidence was available for the 8-rule loss. Re-test with the real briefing after deploy; if anything is still missing, it should appear in the verifier's "possibly missed" list.
 - Emails still go only to the verified inbox (no sending domain).
-- Client-side `console.error` in pages is plain text, not JSON (only server logs are structured).
 
 ## Manual steps for Akash
-1. **Apply migrations in order** (Supabase → SQL editor): `004_rls_all_tables.sql`, then `005_people_per_project_meeting_date.sql`. After 005, check `select title, meeting_date from meetings;` and fix any wrong dates by hand.
+1. **Apply migrations in order** (Supabase → SQL editor):
+   - `004_rls_all_tables.sql`
+   - `005_people_per_project_meeting_date.sql`
+   - `006_indexes_and_performance.sql`
+   After 005, check `select title, meeting_date from meetings;` and fix any wrong dates by hand.
 2. **Backfill people.project_id**: existing team members have `project_id = NULL`, so every project sees them. Assign each one: `update people set project_id='<project uuid>' where name in (...);`. Optionally backfill owners too: `update projects set user_id='<your auth uuid>' where user_id is null;`.
 3. **Fill the demo cache** (optional, before recording): `GEMINI_API_KEY=… npx tsx --tsconfig tsconfig.json scripts/build-demo-cache.ts`, review `src/lib/demo-cache.json`, then commit it.
 4. **Optional**: to turn on the new confidence blend, set `FLAG_CONFIDENCE_BLEND=true` and optionally `CONF_SAMPLES`, `CONF_THRESHOLD`, `CONF_MAYBE_FLOOR`, `CONF_USE_EMBEDDINGS` and `AGENT_MAX_AI_VERIFY_CALLS` (see `.dev.vars.example`). With the blend on and `CONF_SAMPLES=3`, each conflict check uses up to 3 of the 60 daily AI calls (4 if embeddings are on).
