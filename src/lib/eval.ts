@@ -144,6 +144,42 @@ export const EVAL_CASES: EvalCase[] = [
     expectedDeadline: "Thursday",
     description: "Date self-correction: 'Friday-ish, actually Thursday' -> Deadline must be Thursday",
   },
+
+  // 15-18: Fintech project (#5) — 2 real conflicts + 2 tricky refinements
+  {
+    id: 15,
+    category: "contradiction",
+    input: "Why are we on Postgres? Mongo is faster, let's switch the ledger to Mongo.",
+    projectName: "Fintech recon dashboard",
+    expectedObjection: true,
+    description: "Contradicts ledger_database: Mongo vs Postgres (24 Oct: 'Postgres for the ledger ... ACID')",
+  },
+  {
+    id: 16,
+    category: "contradiction",
+    input: "Let's just do polling every 30 sec for settlement status, webhooks are overkill.",
+    projectName: "Fintech recon dashboard",
+    expectedObjection: true,
+    description: "Contradicts settlement_updates_sync: polling vs webhooks (27 Oct: 'webhooks ... polling will kill us at scale')",
+  },
+  {
+    id: 17,
+    category: "refinement",
+    input: "Let's keep Postgres, but add read replicas for the dashboard reads.",
+    projectName: "Fintech recon dashboard",
+    expectedObjection: false,
+    expectedRefinement: true,
+    description: "Tricky refinement: read replicas still Postgres — entailment, NOT a contradiction of ledger_database",
+  },
+  {
+    id: 18,
+    category: "refinement",
+    input: "Clerk is fine, let's keep Clerk but only Google login for now.",
+    projectName: "Fintech recon dashboard",
+    expectedObjection: false,
+    expectedRefinement: true,
+    description: "Tricky refinement: still Clerk, just Google-login-only — NOT a contradiction of auth_provider",
+  },
 ];
 
 export interface EvalResult {
@@ -182,7 +218,11 @@ export function evaluateSnippet(
 
   // 2. Refinements check (Rule: narrower deadline or specific value inside old one = REFINE, NOT contradict)
   if (c.category === "refinement") {
-    const isRefinement = lower.includes("midnight") || lower.includes("11 pm");
+    const isRefinement =
+      lower.includes("midnight") ||
+      lower.includes("11 pm") ||
+      lower.includes("read replicas") || // still Postgres → entailment
+      (lower.includes("clerk") && lower.includes("google")); // still Clerk
     return {
       caseId: c.id,
       category: c.category,
@@ -191,7 +231,7 @@ export function evaluateSnippet(
       flaggedObjection: false,
       flaggedRefinement: isRefinement,
       notes: isRefinement
-        ? "Refinement rule applied: Narrower deadline within 11:59 PM recognized; NOT flagged as contradiction."
+        ? "Refinement recognized: a narrower/more-specific version of an existing decision; NOT flagged as a contradiction."
         : "Failed to detect refinement.",
     };
   }
@@ -210,6 +250,12 @@ export function evaluateSnippet(
     } else if (lower.includes("old") || lower.includes("expense-tracker")) {
       objectionDetected = true;
       reason = "Contradicts 'No old projects. Everything must be built brand new today' (Sakshi, 01:15)";
+    } else if (lower.includes("mongo") || lower.includes("switch the ledger")) {
+      objectionDetected = true;
+      reason = "Contradicts 'Postgres for the ledger' — ACID, 24 Oct (ledger_database)";
+    } else if (lower.includes("polling")) {
+      objectionDetected = true;
+      reason = "Contradicts 'webhooks for settlement updates' — 27 Oct (settlement_updates_sync)";
     }
 
     return {

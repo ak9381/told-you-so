@@ -182,6 +182,21 @@ export default function HomePage() {
     }
   }
 
+  // #4: log each verdict click as a labelled example (server no-ops unless flag on).
+  function logVerdict(obj: Objection, verdict: string) {
+    fetch("/api/log-verdict", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        oldDecisionId: obj.old.id,
+        newQuote: obj.now.quote,
+        topic: obj.topic,
+        verdict,
+        confidence: obj.confidence,
+      }),
+    }).catch(() => {});
+  }
+
   async function handleConfirm() {
     if (!result) return;
     setIsProcessing(true);
@@ -533,7 +548,10 @@ export default function HomePage() {
                 {VERDICTS.map((vd) => (
                   <button
                     key={vd}
-                    onClick={() => setVerdicts((p) => ({ ...p, [i]: vd }))}
+                    onClick={() => {
+                      setVerdicts((p) => ({ ...p, [i]: vd }));
+                      logVerdict(obj, vd);
+                    }}
                     className={`font-mono text-[11px] uppercase tracking-wider px-3 py-1.5 border transition-colors ${
                       verdicts[i] === vd
                         ? "bg-[#1C1917] text-[#F4EFE6] border-[#1C1917]"

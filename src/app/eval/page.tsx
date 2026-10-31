@@ -30,7 +30,7 @@ export default function EvalPage() {
             Official Evaluation &amp; Benchmarking Suite
           </h2>
           <p className="font-mono text-xs text-[#78716C] mt-1">
-            14 Hand-labeled validation cases measuring conflict recall, refinement precision, scoping, and messy speech extraction.
+            {EVAL_CASES.length} Hand-labeled validation cases measuring conflict recall, refinement precision, scoping, and messy speech extraction.
           </p>
         </div>
 
@@ -100,7 +100,7 @@ export default function EvalPage() {
       <section className="border border-[#1C1917] bg-[#FAF7F2] p-6 shadow-sm mb-12">
         <div className="flex items-center justify-between border-b border-[#DDD3C1] pb-3 mb-4">
           <span className="font-serif text-lg font-bold text-[#1C1917]">
-            14 Labeled Validation Snippets
+            {EVAL_CASES.length} Labeled Validation Snippets
           </span>
           <span className="font-mono text-xs text-[#78716C]">
             Rules: Refinements ≠ Contradictions · Cross-project = Isolated
