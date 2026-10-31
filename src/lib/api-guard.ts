@@ -2,6 +2,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import type { SupabaseClient, User } from "@supabase/supabase-js";
 import { getRequestUser } from "@/lib/supabase-ssr";
 import { isEmailAllowed } from "@/lib/allowlist";
+import { checkRateLimit } from "@/lib/rate-limit";
 
 export const MAX_BODY_BYTES = 1_000_000; // 1 MB
 
@@ -23,6 +24,15 @@ export async function requireUser(
   }
   if (!user?.email) return { error: jsonError("Please sign in again.", 401) };
   if (!isEmailAllowed(user.email)) return { error: jsonError("This account is not on the access list.", 403) };
+  // Every authenticated write (POST/PATCH/PUT/DELETE) is rate-limited per user.
+  if (request.method !== "GET" && request.method !== "HEAD") {
+    const rl = checkRateLimit(`w:${user.id}`);
+    if (!rl.ok) {
+      const res = jsonError("Too many changes too quickly — wait a moment and try again.", 429);
+      res.headers.set("Retry-After", String(rl.retryAfterSec));
+      return { error: res };
+    }
+  }
   return { user };
 }
 
