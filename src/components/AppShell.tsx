@@ -2,7 +2,6 @@
 
 import { useState, useEffect } from "react";
 import { usePathname, useRouter } from "next/navigation";
-import { createBrowserSupabase } from "@/lib/supabase-ssr";
 
 interface Project {
   id: string;
@@ -29,9 +28,11 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
       .then((r) => r.json())
       .then((d) => setProjects(d.projects ?? []))
       .catch(() => {});
-    createBrowserSupabase()
-      .auth.getUser()
-      .then(({ data }) => setEmail(data.user?.email ?? ""))
+    // Read the user from the server (do NOT call auth.getUser() client-side —
+    // it would trigger a token refresh that conflicts with the middleware's).
+    fetch("/api/me")
+      .then((r) => r.json())
+      .then((d) => setEmail(d.email ?? ""))
       .catch(() => {});
     try {
       setActiveProject(new URLSearchParams(window.location.search).get("project"));
@@ -43,10 +44,9 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
 
   async function logout() {
     try {
-      await createBrowserSupabase().auth.signOut();
+      await fetch("/api/auth/logout", { method: "POST" });
     } catch {}
-    router.push("/login");
-    router.refresh();
+    window.location.href = "/login";
   }
 
   return (
