@@ -34,20 +34,37 @@ In the tray, each item shows a chip such as "92% matches transcript". Items belo
 The call has a 12s timeout and 1 retry. If it fails or the daily limit is hit, items show "not verified" and confirming is never blocked. The verification runs in parallel with the conflict agent.
 The flag is on in `.dev.vars.example`. **For prod, set `FLAG_VERIFY_EXTRACTION=true` as a Worker var.** Files: `src/lib/verifier.ts`, `api/ingest`, `page.tsx`.
 
+## Round 2 (1 Nov 2026, 00:00–00:50 IST)
+| Commit | Fix |
+|---|---|
+| 447bc69 | Usage limiter **fails closed** when the usage table can't be read or written. |
+| 2f0372e | **Extractor under-capture (8 rules → ~4 saved).** Probable root cause: a null speaker or quote made the whole NOT NULL `decisions` insert fail. Fixes: `normalizeExtraction()` keeps every item (unknown topic → `other`, missing speaker → "Organizer", dedupes exact duplicates only); maxOutputTokens raised to 8192 with a clear truncation message; the prompt now says "capture every distinct rule/decision as its own item, never merge"; commit fills in a missing speaker. Offline 8-rule test added. |
+| e78c604 | `npm test` (vitest) runs `tests/**` offline. Tests cover the IST dates, the verification scorer, 8-rule normalize and usage fail-closed. |
+| 28c8c45 | **`meetings.meeting_date`** (migration 005, backfilled by parsing titles, else created_at in IST). Written on commit and shown in decision history ("M#3 · Oct 31") and polite cards ("On Oct 31 you decided"). |
+| 16d6aa4 | **Team members per project** (`people.project_id`, migration 005). Add, list and assign are scoped to the project; digests, send-now and `/digest/[person]` are scoped to the caller's projects; reminders look people up by project. Digest email is HTML-escaped, and the PostgREST `.or()` filter no longer interpolates names. |
+| bea4705 | Removed silent catches. Fetch failures are logged, and the Tasks and Reminders pages show an error. |
+| 4a9ee7b | The verification tray lists **every** "possibly missed" item. |
+| 5515099 | Per-user **write rate limit** (60/min, 429 + Retry-After) on every authenticated non-GET route. It's in-memory per isolate, so best-effort. |
+| 5631fe7 | **Demo-response cache** (stage-9d §4.5): hash-keyed `src/lib/demo-cache.json`, served before the usage cap. Turn it off with `FLAG_DEMO_CACHE=off`. Generator: `scripts/build-demo-cache.ts`. |
+| 21d245f | **Structured JSON logging** (`src/lib/log.ts`) across the API routes, server libs and the cron worker. |
+
+Checks: `tsc`, `next lint`, `npm test` (24/24) and `npm run build` all pass.
+
 ## Still open
-- **Usage limiter fails open** when the Supabase usage query errors (`lib/usage.ts`). It should probably fail closed in prod.
-- **`people` is a shared directory** with no owner column, so all 5 allowlisted users see the same team list. `/digest/[person]` and `send-now` "digest-all" also work across users. A schema change is needed if real multi-tenancy is ever wanted.
-- **Legacy seeded rows with `user_id IS NULL`** are still treated as accessible by the API so the demo isn't broken. Backfill them (see below) and then tighten `canAccessProject`.
-- **No rate limit on non-AI routes** (only Gemini paths are capped). Consider Cloudflare rate-limiting rules.
-- **The ledger and outbox pages still have some silent `.catch(() => {})` calls** on background refreshes.
-- **Unit tests can't run**: `tests/__tests__` has no runner (no jest/vitest in devDependencies).
-- **Demo-response caching** (stage-9d §4.5) and structured logging were not done.
-- **Emails still all go to the verified inbox** (no verified sending domain).
+- **Migrations 004 and 005 are NOT applied.** Until 005 runs, the people and meeting_date code will error against the live DB (missing column). **Apply 004 and then 005 before deploying this branch.**
+- **The demo cache is empty** (`{}`) because generating it needs the Gemini key. See manual step 3.
+- **The rate limit is per Worker isolate.** For a hard global limit, add a Cloudflare Rate Limiting rule on `/api/*` POST.
+- **Legacy rows with `user_id IS NULL`** (projects) and **`project_id IS NULL`** (people) are still visible to every allowlisted user. Backfill them, then tighten `canAccessProject` and the people `project_id.is.null` fallback.
+- No live evidence was available for the 8-rule loss. Re-test with the real briefing after deploy; if anything is still missing, it should appear in the verifier's "possibly missed" list.
+- Emails still go only to the verified inbox (no sending domain).
+- Client-side `console.error` in pages is plain text, not JSON (only server logs are structured).
 
 ## Manual steps for Akash
-1. **Apply the migration**: in Supabase → SQL editor, run `supabase/migrations/004_rls_all_tables.sql`. Optionally backfill the owner first: `update projects set user_id='<your auth uuid>' where user_id is null;` (same for `meetings`).
-2. **Set the flag**: add `FLAG_VERIFY_EXTRACTION=true` to the Worker vars/secrets (and to `.dev.vars` locally).
-3. **Check env names**: `SUPABASE_SERVICE_ROLE_KEY` and `NOTION_DATABASE_ID` (see `.dev.vars.example`).
-4. **Review, merge and deploy**: review the `prod-ready` branch, merge after judging, then deploy with `scripts/deploy.sh`. Afterwards, hit `/api/health` and run one test ingest to see the verification chips.
-5. **Resend**: verify a sending domain and set `RESEND_FROM` so reminders go to real recipients.
-6. **Smoke test after deploy**: sign in, switch projects, ingest text, confirm, check that tasks reach Notion, use Send now, and check `/api/health`.
+1. **Apply migrations in order** (Supabase → SQL editor): `004_rls_all_tables.sql`, then `005_people_per_project_meeting_date.sql`. After 005, check `select title, meeting_date from meetings;` and fix any wrong dates by hand.
+2. **Backfill people.project_id**: existing team members have `project_id = NULL`, so every project sees them. Assign each one: `update people set project_id='<project uuid>' where name in (...);`. Optionally backfill owners too: `update projects set user_id='<your auth uuid>' where user_id is null;`.
+3. **Fill the demo cache** (optional, before recording): `GEMINI_API_KEY=… npx tsx --tsconfig tsconfig.json scripts/build-demo-cache.ts`, review `src/lib/demo-cache.json`, then commit it.
+4. **Set the flags**: `FLAG_VERIFY_EXTRACTION=true` as a Worker var. `FLAG_DEMO_CACHE` is on by default; set it to `off` to disable.
+5. **Check env names**: `SUPABASE_SERVICE_ROLE_KEY` and `NOTION_DATABASE_ID` (see `.dev.vars.example`).
+6. **Review, merge and deploy**: review `prod-ready`, merge after judging, then deploy with `scripts/deploy.sh`. Afterwards, hit `/api/health`.
+7. **Resend**: verify a sending domain and set `RESEND_FROM`.
+8. **Smoke test after deploy**: sign in, switch projects, add a team member (it should appear only in that project), paste the 8-rule briefing and check that 8 items appear, confirm, check the decision history shows dates, use Send now, and check `/api/health`.
