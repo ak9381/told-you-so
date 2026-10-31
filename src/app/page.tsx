@@ -65,6 +65,20 @@ export default function HomePage() {
   useEffect(() => {
     loadTimeline(selectedProjectId);
   }, [selectedProjectId]);
+
+  // If arriving from the live meeting (End Meeting), prefill the paste box.
+  useEffect(() => {
+    try {
+      const t = sessionStorage.getItem("tys_live_transcript");
+      if (t) {
+        setActiveTab("paste");
+        setRawInput(t);
+        sessionStorage.removeItem("tys_live_transcript");
+      }
+    } catch {
+      /* ignore */
+    }
+  }, []);
   const [rawInput, setRawInput] = useState<string>("");
   const [isProcessing, setIsProcessing] = useState<boolean>(false);
   const [result, setResult] = useState<ExtractionResult | null>(null);

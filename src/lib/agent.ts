@@ -73,6 +73,21 @@ async function searchMemory(
   return (data as MemoryDecision[]) ?? [];
 }
 
+/** All active (non-superseded) decisions in a project — the live memory. */
+export async function getProjectMemory(
+  projectId: string
+): Promise<MemoryDecision[]> {
+  const supabase = createServerClient();
+  const { data } = await supabase
+    .from("decisions")
+    .select("id, topic, exact_quote, speaker, said_at, meeting_seq")
+    .eq("project_id", projectId)
+    .eq("status", "active")
+    .is("superseded_by", null)
+    .order("meeting_seq", { ascending: false });
+  return (data as MemoryDecision[]) ?? [];
+}
+
 const TIME_TOPICS = new Set(["deadline", "submission", "launch-date"]);
 
 interface VerifyOutput {
