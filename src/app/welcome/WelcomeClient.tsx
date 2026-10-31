@@ -14,7 +14,7 @@ const DIFFERENTIATORS = [
   },
   {
     k: "Refinement ≠ reversal",
-    v: "“By 11 PM” isn’t a new deadline; “Postgres with read replicas” isn’t a switch to Mongo. Proven with live precision/recall on the /eval page.",
+    v: "“By 11 PM” isn’t a new deadline; “Postgres with read replicas” isn’t a switch to Mongo. The agent knows the difference — it flags real reversals and lets refinements through.",
   },
   {
     k: "Confirm before save",
@@ -136,10 +136,10 @@ export default function WelcomeClient() {
               Try the live demo →
             </a>
             <a
-              href="/eval"
+              href="#proof"
               className="rounded-xl border border-white/15 px-7 py-3.5 text-sm font-medium text-[#F5F5F4] transition-colors hover:bg-white/5"
             >
-              See the eval numbers
+              See how it works
             </a>
           </div>
         </div>
@@ -149,7 +149,7 @@ export default function WelcomeClient() {
       </section>
 
       {/* ───────── The objection moment ───────── */}
-      <section className="mx-auto max-w-6xl px-6 py-24">
+      <section id="proof" className="mx-auto max-w-6xl px-6 py-24 scroll-mt-20">
         <Reveal className="mb-10 text-center">
           <p className="text-[11px] font-medium uppercase tracking-[0.25em] text-[#A8A29E]">
             The objection moment

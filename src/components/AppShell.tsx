@@ -14,7 +14,6 @@ const TOOLS = [
   { href: "/", label: "Home" },
   { href: "/ledger", label: "Tasks" },
   { href: "/outbox", label: "Reminders" },
-  { href: "/eval", label: "Accuracy" },
 ];
 
 export default function AppShell({ children }: { children: React.ReactNode }) {

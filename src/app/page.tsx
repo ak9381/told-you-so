@@ -104,6 +104,34 @@ function normalizeMeetingLink(raw: string): string | null {
   return null;
 }
 
+// Clickable info popover (native title tooltips are slow/unreliable).
+function InfoDot({ text }: { text: string }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <span className="relative inline-flex">
+      <button
+        type="button"
+        onClick={(e) => {
+          e.stopPropagation();
+          setOpen((o) => !o);
+        }}
+        className="w-5 h-5 rounded-full border border-[#D8D6D0] text-[#9B9690] text-[11px] font-serif flex items-center justify-center hover:border-[#B9B6AE] hover:text-[#6B6560]"
+        aria-label="More info"
+      >
+        i
+      </button>
+      {open && (
+        <>
+          <span className="fixed inset-0 z-40" onClick={() => setOpen(false)} />
+          <span className="absolute right-0 top-7 z-50 w-64 rounded-xl border border-[#E7E5E0] bg-white p-3 text-xs leading-relaxed text-[#6B6560] shadow-lg normal-case font-normal tracking-normal">
+            {text}
+          </span>
+        </>
+      )}
+    </span>
+  );
+}
+
 export default function HomePage() {
   const [selectedProjectId, setSelectedProjectId] = useState<string>("proj-hackathon");
   const [projects, setProjects] = useState<ProjectOption[]>(DEFAULT_PROJECTS);
@@ -602,12 +630,7 @@ export default function HomePage() {
                 works with Wispr Flow
               </span>
             </div>
-            <span
-              title="Click Use mic and talk — it uses Chrome's built-in speech-to-text (free, nothing to install, no Wispr needed). You can also just type, or dictate with Wispr Flow if you have it. We clean up the messy, self-correcting way people really talk."
-              className="cursor-help w-5 h-5 rounded-full border border-[#D8D6D0] text-[#9B9690] text-[11px] font-serif flex items-center justify-center hover:border-[#B9B6AE] hover:text-[#6B6560]"
-            >
-              i
-            </span>
+            <InfoDot text="Click Use mic and talk — it uses Chrome's built-in speech-to-text (free, nothing to install, no Wispr needed). You can also just type, or dictate with Wispr Flow if you have it. We clean up the messy, self-correcting way people really talk." />
           </div>
           <div className="flex items-center gap-2 mb-3">
             <input
@@ -682,12 +705,7 @@ export default function HomePage() {
               <span className="text-xl">⬆️</span>
               <h3 className="font-serif text-2xl text-[#1A1715]">Upload Files</h3>
             </div>
-            <span
-              title="Works with WhatsApp and Slack too — export the chat (WhatsApp: Export chat → Without media) and drop the .txt here. No API needed."
-              className="cursor-help w-5 h-5 rounded-full border border-[#D8D6D0] text-[#9B9690] text-[11px] font-serif flex items-center justify-center hover:border-[#B9B6AE] hover:text-[#6B6560]"
-            >
-              i
-            </span>
+            <InfoDot text="Upload any plain-text notes, a meeting transcript, or a chat export. WhatsApp: Export chat → Without media → drop the .txt here. Slack: export the channel. No API needed. Pick what it is in the dropdown so we ingest it correctly." />
           </div>
           <p className="text-sm text-[#6B6560] mb-3">Drag &amp; drop notes, transcripts, or chat exports.</p>
           <div className="flex items-center gap-2 mb-3">
@@ -739,12 +757,7 @@ export default function HomePage() {
               <span className="text-xl">📅</span>
               <h3 className="font-serif text-2xl text-[#1A1715]">Connect Calendar</h3>
             </div>
-            <span
-              title="Coming soon: connect Google Calendar so meetings auto-create projects and pull in attendees. For now, add meetings by dictating, uploading a transcript, or pasting a live meeting link."
-              className="cursor-help w-5 h-5 rounded-full border border-[#D8D6D0] text-[#9B9690] text-[11px] font-serif flex items-center justify-center hover:border-[#B9B6AE] hover:text-[#6B6560]"
-            >
-              i
-            </span>
+            <InfoDot text="Coming soon: connect Google Calendar so meetings auto-create projects and pull in attendees. For now, add meetings by dictating, uploading a transcript, or pasting a live meeting link." />
           </div>
           <p className="text-sm text-[#6B6560] mb-4">Import events &amp; meetings automatically.</p>
           <div className="flex items-center gap-2 text-sm">
@@ -760,12 +773,7 @@ export default function HomePage() {
               <span className="text-xl">📡</span>
               <h3 className="font-serif text-2xl text-[#1A1715]">Live Meeting</h3>
             </div>
-            <span
-              title={`Paste a Google Meet or Zoom link — we open the call and listen live (Chrome speech recognition, not Wispr), flagging conflicts with earlier decisions as people talk. It checks against the project selected in the sidebar (${currentProjectName}). No link? Use 'play a demo clip'.`}
-              className="cursor-help w-5 h-5 rounded-full border border-[#D8D6D0] text-[#9B9690] text-[11px] font-serif flex items-center justify-center hover:border-[#B9B6AE] hover:text-[#6B6560]"
-            >
-              i
-            </span>
+            <InfoDot text={`Paste a Google Meet or Zoom link — we open the call and listen live (Chrome speech recognition, not Wispr), flagging conflicts with earlier decisions as people talk. It checks against the project selected in the sidebar (${currentProjectName}). No link? Use 'play a demo clip'.`} />
           </div>
           <input
             value={meetingLink}
