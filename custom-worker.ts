@@ -19,6 +19,15 @@ export default {
     const req = new Request(`https://cron.internal${path}`, {
       headers: { Authorization: `Bearer ${env.CRON_SECRET ?? ""}` },
     });
-    ctx.waitUntil(worker.fetch(req, env, ctx));
+    ctx.waitUntil(
+      (worker.fetch(req, env, ctx) as Promise<Response>)
+        .then(async (res) => {
+          if (!res.ok) {
+            const body = await res.text().catch(() => "");
+            console.error(`cron ${event.cron} -> ${path} failed: HTTP ${res.status} ${body.slice(0, 300)}`);
+          }
+        })
+        .catch((e: unknown) => console.error(`cron ${event.cron} -> ${path} threw:`, e))
+    );
   },
 };
