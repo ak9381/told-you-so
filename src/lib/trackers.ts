@@ -63,9 +63,45 @@ async function createNotionTask(task: TaskInput): Promise<TrackerResult> {
   }
 }
 
-/** The adapter entry point. Chooses the tracker (Notion for now). */
-export async function createTask(task: TaskInput): Promise<TrackerResult> {
-  return createNotionTask(task);
+/** Find a page already filed for this task (the "Decision ID" column holds our action id). */
+async function findNotionTask(key: string): Promise<TrackerResult | null> {
+  const token = process.env.NOTION_TOKEN;
+  const dbId = process.env.NOTION_DATABASE_ID;
+  if (!token || !dbId || !key) return null;
+  try {
+    const res = await fetchWithRetry(`https://api.notion.com/v1/databases/${dbId}/query`, {
+      method: "POST",
+      headers: { Authorization: `Bearer ${token}`, "Notion-Version": NOTION_VERSION, "Content-Type": "application/json" },
+      body: JSON.stringify({ filter: { property: "Decision ID", rich_text: { equals: key } }, page_size: 1 }),
+    }, { timeoutMs: 10_000, retries: 1, label: "notion-query" });
+    if (!res.ok) return null;
+    const data = await res.json().catch(() => ({}));
+    const page = data?.results?.[0];
+    return page?.id ? { ok: true, id: page.id, url: page.url } : null;
+  } catch {
+    return null; // lookup is an optimisation; creation still proceeds
+  }
+}
+
+const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+
+/**
+ * The adapter entry point (Notion for now). B6: idempotent with retry — before
+ * each create attempt we look for a page already filed for this task, so a
+ * retry after a timed-out-but-succeeded create never duplicates it.
+ */
+export async function createTask(task: TaskInput, attempts = 3): Promise<TrackerResult> {
+  let last: TrackerResult = { ok: false, error: "not attempted" };
+  for (let i = 0; i < attempts; i++) {
+    if (task.decisionId) {
+      const existing = await findNotionTask(task.decisionId);
+      if (existing) return existing;
+    }
+    last = await createNotionTask(task);
+    if (last.ok || last.error === "Notion not configured") return last;
+    if (i < attempts - 1) await sleep(500 * 2 ** i);
+  }
+  return last;
 }
 
 // Our statuses (open/done/blocked) -> the Notion "Status" select option names.
