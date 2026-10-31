@@ -15,6 +15,7 @@ export async function GET(request: NextRequest) {
     .select(
       "id, title, owner, due_date, status, source_quote, reminder_lead_min, notion_page_id, project_id, meeting:meetings(title)"
     )
+    .order("due_date", { ascending: false, nullsFirst: false })
     .order("created_at", { ascending: false });
   if (projectId) aq = aq.eq("project_id", projectId);
   const { data: actions } = await aq;

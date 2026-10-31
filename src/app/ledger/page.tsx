@@ -39,13 +39,19 @@ function meetingTitle(m: ActionRow["meeting"]): string {
 const notionPageUrl = (pageId: string | null) =>
   pageId ? `https://www.notion.so/${pageId.replace(/-/g, "")}` : null;
 
+const FILTERS = ["all", "open", "done", "blocked"] as const;
+type Filter = (typeof FILTERS)[number];
+
 export default function LedgerPage() {
   const [actions, setActions] = useState<ActionRow[]>([]);
   const [notionLog, setNotionLog] = useState<NotionLogRow[]>([]);
   const [notionDbUrl, setNotionDbUrl] = useState<string | null>(null);
   const [msg, setMsg] = useState("");
+  const [loading, setLoading] = useState(true);
+  const [filter, setFilter] = useState<Filter>("all");
 
-  const load = useCallback(() => {
+  const load = useCallback((silent = false) => {
+    if (!silent) setLoading(true);
     let pid: string | null = null;
     try {
       pid =
@@ -60,14 +66,17 @@ export default function LedgerPage() {
         setNotionLog(d.notionLog ?? []);
         setNotionDbUrl(d.notionDbUrl ?? null);
       })
-      .catch(() => {});
+      .catch(() => {})
+      .finally(() => setLoading(false));
   }, []);
   useEffect(() => {
     load();
   }, [load]);
 
+  // Optimistic: update the row in place so the card never jumps on click.
   async function setStatus(id: string, status: string) {
     setMsg("");
+    setActions((prev) => prev.map((a) => (a.id === id ? { ...a, status } : a)));
     const r = await fetch("/api/ledger", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -76,7 +85,7 @@ export default function LedgerPage() {
     const d = await r.json().catch(() => ({}));
     if (d.notionSynced) setMsg("Status updated — synced to Notion ✓");
     else if (d.notionError) setMsg(`Status updated (Notion sync failed: ${d.notionError})`);
-    load();
+    else setMsg("Status updated");
   }
 
   async function fileToNotion(id: string) {
@@ -87,8 +96,15 @@ export default function LedgerPage() {
       body: JSON.stringify({ actionId: id, fileNotion: true }),
     });
     const d = await r.json().catch(() => ({}));
-    setMsg(d.ok ? "Filed in Notion ✓" : `Notion filing failed: ${d.error || "unknown"}`);
-    load();
+    if (d.ok) {
+      setActions((prev) =>
+        prev.map((a) => (a.id === id ? { ...a, notion_page_id: d.notion_page_id } : a))
+      );
+      setMsg("Filed in Notion ✓");
+      load(true);
+    } else {
+      setMsg(`Notion filing failed: ${d.error || "unknown"}`);
+    }
   }
 
   async function remindNow(id: string) {
@@ -99,12 +115,13 @@ export default function LedgerPage() {
       body: JSON.stringify({ kind: "reminder", actionId: id }),
     });
     const d = await r.json();
-    setMsg(d.sent ? `Reminder sent (${d.sent}). Check the Outbox.` : `No email sent — ${d.errors?.join(", ") || "see Outbox"}.`);
-    load();
+    setMsg(d.sent ? `Reminder sent (${d.sent}). Check Reminders.` : `No email sent — ${d.errors?.join(", ") || "see Reminders"}.`);
   }
 
   const filed = notionLog.filter((n) => n.status === "filed").length;
   const failed = notionLog.filter((n) => n.status === "failed").length;
+  const count = (f: Filter) => (f === "all" ? actions.length : actions.filter((a) => a.status === f).length);
+  const visible = filter === "all" ? actions : actions.filter((a) => a.status === filter);
 
   return (
     <AppShell>
@@ -112,6 +129,11 @@ export default function LedgerPage() {
         aside={
           <div className="flex items-center gap-3">
             {msg && <span className="text-sm text-[#6B6560]">{msg}</span>}
+            {notionDbUrl && (
+              <span className="hidden sm:inline-flex items-center gap-1.5 text-xs text-[#1C7A4A]">
+                <span className="w-1.5 h-1.5 rounded-full bg-[#1C7A4A]" /> Notion connected
+              </span>
+            )}
             {notionDbUrl && (
               <a
                 href={notionDbUrl}
@@ -134,7 +156,7 @@ export default function LedgerPage() {
         gets a reminder email before it&rsquo;s due. Status changes here sync to Notion. Mark them
         open / done / blocked below.
       </p>
-      <div className="mb-8 inline-flex items-center gap-2 rounded-lg bg-[#FFF8E6] border border-[#F0E3B8] px-3.5 py-2 text-sm text-[#7A6A2F]">
+      <div className="mb-6 inline-flex items-center gap-2 rounded-lg bg-[#FFF8E6] border border-[#F0E3B8] px-3.5 py-2 text-sm text-[#7A6A2F]">
         <span>✉️</span>
         <span>
           Demo note: all reminder emails are delivered to{" "}
@@ -143,13 +165,41 @@ export default function LedgerPage() {
         </span>
       </div>
 
+      {/* Status filter */}
+      <div className="flex items-center gap-1.5 mb-5">
+        {FILTERS.map((f) => (
+          <button
+            key={f}
+            onClick={() => setFilter(f)}
+            className={`rounded-full px-3.5 py-1.5 text-sm font-medium capitalize transition-colors ${
+              filter === f
+                ? "bg-[#1C1C1E] text-white"
+                : "bg-white border border-[#E0DED8] text-[#6B6560] hover:border-[#1A1715] hover:text-[#1A1715]"
+            }`}
+          >
+            {f} <span className={filter === f ? "text-white/60" : "text-[#9B9690]"}>{count(f)}</span>
+          </button>
+        ))}
+      </div>
+
       <div className="space-y-3 mb-10">
-        {actions.length === 0 && (
+        {loading && (
+          <Card className="p-6">
+            <p className="text-sm text-[#9B9690]">Loading tasks…</p>
+          </Card>
+        )}
+        {!loading && actions.length === 0 && (
           <Card className="p-6">
             <p className="text-sm text-[#9B9690]">No actions yet — confirm a debrief or meeting.</p>
           </Card>
         )}
-        {actions.map((a) => (
+        {!loading && actions.length > 0 && visible.length === 0 && (
+          <Card className="p-6">
+            <p className="text-sm text-[#9B9690]">No {filter} tasks.</p>
+          </Card>
+        )}
+        {!loading &&
+          visible.map((a) => (
           <Card key={a.id} className="p-5 flex flex-wrap items-start justify-between gap-4" hover>
             <div className="flex-1 min-w-[260px]">
               <div className="text-base font-semibold text-[#1A1715]">{a.title}</div>

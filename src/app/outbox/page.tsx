@@ -27,6 +27,7 @@ const fmt = (t: string | null) => (t ? new Date(t).toLocaleTimeString() : "—")
 export default function OutboxPage() {
   const [rows, setRows] = useState<OutboxRow[]>([]);
   const [tick, setTick] = useState(0);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     const load = () => {
@@ -39,7 +40,8 @@ export default function OutboxPage() {
       fetch(pid ? `/api/outbox?projectId=${pid}` : "/api/outbox")
         .then((r) => r.json())
         .then((d) => setRows(d.outbox ?? []))
-        .catch(() => {});
+        .catch(() => {})
+        .finally(() => setLoading(false));
     };
     load();
     const t = setInterval(() => {
@@ -83,7 +85,14 @@ export default function OutboxPage() {
               </tr>
             </thead>
             <tbody>
-              {rows.length === 0 && (
+              {loading && (
+                <tr>
+                  <td colSpan={8} className="px-4 py-8 text-[#9B9690] italic text-center">
+                    Loading reminders…
+                  </td>
+                </tr>
+              )}
+              {!loading && rows.length === 0 && (
                 <tr>
                   <td colSpan={8} className="px-4 py-8 text-[#9B9690] italic text-center">
                     No reminders or digests yet.

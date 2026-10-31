@@ -152,6 +152,7 @@ export default function HomePage() {
   const [verdicts, setVerdicts] = useState<Record<number, string>>({});
   const [timeline, setTimeline] = useState<TimelineDecision[]>([]);
   const [view, setView] = useState<"Day" | "Week" | "Month" | "Year">("Week");
+  const [projectsLoaded, setProjectsLoaded] = useState(false);
   const [meetingLink, setMeetingLink] = useState("");
   const [meetingName, setMeetingName] = useState("");
   const [uploadType, setUploadType] = useState<"notes" | "transcript" | "whatsapp" | "slack">(
@@ -435,7 +436,8 @@ export default function HomePage() {
           setSelectedProjectId(match ? (urlProject as string) : d.projects[0].id);
         }
       })
-      .catch(() => {});
+      .catch(() => {})
+      .finally(() => setProjectsLoaded(true));
   }, []);
 
   function loadTimeline(pid: string) {
@@ -462,6 +464,7 @@ export default function HomePage() {
   const autoMeetingTitle = `${currentProjectName} #2 · ${formattedTime} IST`;
   const meetingTitleToUse = meetingName.trim() || autoMeetingTitle;
   const sourceLabel = activeTab === "debrief" ? "voice" : uploadType;
+  const projectLabel = projectsLoaded ? currentProjectName : "Loading…";
 
   async function handleExtract(textArg?: string) {
     const input = typeof textArg === "string" ? textArg : rawInput;
@@ -590,9 +593,9 @@ export default function HomePage() {
         <div className="flex flex-wrap items-center justify-between gap-4">
           <div>
             <h1 className="font-serif text-4xl md:text-5xl font-semibold tracking-tight text-[#1A1715]">
-              {currentProjectName}
+              {projectLabel}
             </h1>
-            <p className="text-[#9B9690] text-sm mt-1">{meetingTitleToUse}</p>
+            <p className="text-[#9B9690] text-sm mt-1">{projectsLoaded ? meetingTitleToUse : ""}</p>
           </div>
           <div className="flex items-center gap-3">
             <div className="hidden sm:inline-flex items-center rounded-full bg-[#F3F3F1] px-1 py-1 text-sm">
@@ -639,7 +642,7 @@ export default function HomePage() {
               placeholder="Name this meeting (optional)"
               className="flex-1 min-w-0 rounded-lg border border-[#E7E5E0] bg-white/60 px-3 py-2 text-sm text-[#1A1715] placeholder:text-[#9B9690] focus:outline-none focus:border-[#B9B6AE]"
             />
-            <span className="shrink-0 text-xs text-[#9B9690]">→ {currentProjectName}</span>
+            <span className="shrink-0 text-xs text-[#9B9690]">→ {projectLabel}</span>
           </div>
           <textarea
             rows={4}
@@ -746,7 +749,7 @@ export default function HomePage() {
             ) : (
               <span />
             )}
-            <span className="shrink-0 text-xs text-[#9B9690]">→ {currentProjectName}</span>
+            <span className="shrink-0 text-xs text-[#9B9690]">→ {projectLabel}</span>
           </div>
         </Card>
 
