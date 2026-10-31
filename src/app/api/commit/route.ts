@@ -82,7 +82,7 @@ export async function POST(request: NextRequest) {
         source_type: sourceType || "debrief",
         raw_text: rawText,
       })
-      .select()
+      .select("id")
       .single();
 
     if (meetingErr || !meeting) {

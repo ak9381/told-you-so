@@ -31,7 +31,7 @@ export async function GET(request: NextRequest) {
 
   let q = supabase
     .from("outbox")
-    .select("*")
+    .select("id, type, person_name, subject, scheduled_at, sent_at, channel, status, error, resend_id, created_at")
     .order("created_at", { ascending: false })
     .limit(100);
   q = ids.length ? q.or(`action_id.in.(${ids.join(",")}),type.eq.digest`) : q.eq("type", "digest");
