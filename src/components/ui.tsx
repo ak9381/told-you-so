@@ -12,9 +12,7 @@ export function Card({
 }) {
   return (
     <div
-      className={`bg-white rounded-2xl border border-[#E7E5E0] card-soft ${
-        hover ? "card-hover" : ""
-      } ${className}`}
+      className={`glass rounded-2xl card-soft ${hover ? "card-hover" : ""} ${className}`}
     >
       {children}
     </div>

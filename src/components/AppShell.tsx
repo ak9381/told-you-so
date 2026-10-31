@@ -8,9 +8,9 @@ interface Project {
   name: string;
 }
 
-const NAV = [
-  { href: "/", label: "Debrief" },
-  { href: "/live", label: "Live Meeting" },
+// Secondary tools (kept out of the main sidebar to match the simple design).
+const TOOLS = [
+  { href: "/live", label: "Live" },
   { href: "/ledger", label: "Ledger" },
   { href: "/outbox", label: "Outbox" },
   { href: "/eval", label: "Eval" },
@@ -50,8 +50,8 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
   }
 
   return (
-    <div className="flex min-h-screen bg-[#F7F6F3]">
-      <aside className="w-60 shrink-0 bg-white border-r border-[#E7E5E0] flex flex-col sticky top-0 h-screen">
+    <div className="flex min-h-screen">
+      <aside className="w-60 shrink-0 glass-shell border-r border-white/60 flex flex-col sticky top-0 h-screen">
         <a href="/" className="px-6 pt-7 pb-5 block">
           <div className="font-serif text-2xl font-black leading-[1.05] tracking-tight text-[#1A1715]">
             TOLD
@@ -60,24 +60,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
           </div>
         </a>
 
-        <nav className="px-3 space-y-0.5 pb-2 border-b border-[#EFEEEA]">
-          {NAV.map((n) => {
-            const active = pathname === n.href;
-            return (
-              <a
-                key={n.href}
-                href={n.href}
-                className={`block rounded-lg px-3 py-2 text-sm font-medium transition-colors ${
-                  active ? "bg-[#F1F0EC] text-[#1A1715]" : "text-[#6B6560] hover:bg-[#F7F6F3]"
-                }`}
-              >
-                {n.label}
-              </a>
-            );
-          })}
-        </nav>
-
-        <div className="px-6 pt-5 pb-2 text-xs uppercase tracking-wider text-[#9B9690]">
+        <div className="px-6 pt-2 pb-2 text-xs uppercase tracking-wider text-[#9B9690] border-t border-[#EFEEEA]">
           Projects
         </div>
         <div className="px-3 space-y-0.5 overflow-y-auto flex-1">
@@ -100,7 +83,27 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
           })}
         </div>
 
-        <div className="p-4 border-t border-[#E7E5E0]">
+        {/* Tools (secondary nav) */}
+        <div className="px-3 py-2 border-t border-[#EFEEEA] flex flex-wrap gap-1">
+          {TOOLS.map((t) => {
+            const active = pathname === t.href;
+            return (
+              <a
+                key={t.href}
+                href={t.href}
+                className={`rounded-lg px-2.5 py-1 text-xs font-medium transition-colors ${
+                  active
+                    ? "bg-[#F1F0EC] text-[#1A1715]"
+                    : "text-[#9B9690] hover:text-[#1A1715] hover:bg-[#F7F6F3]"
+                }`}
+              >
+                {t.label}
+              </a>
+            );
+          })}
+        </div>
+
+        <div className="p-4 border-t border-[#EFEEEA]">
           <div className="flex items-center gap-3 mb-2">
             <div className="w-8 h-8 rounded-full bg-[#ECEAE5] flex items-center justify-center text-xs font-semibold text-[#6B6560]">
               {initials}

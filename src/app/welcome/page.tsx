@@ -40,126 +40,135 @@ const DIFFERENTIATORS = [
   },
 ];
 
+const CONTEXT = [
+  {
+    k: "Who it’s for",
+    v: "Agencies and IT-services firms where a client re-opening a settled decision costs billable hours. And engineering teams whose settled architecture keeps getting re-argued.",
+  },
+  {
+    k: "How it works",
+    v: "Two steps, not one big prompt: extract decisions (Gemini 3.5 Flash Lite, JSON), then a separate strict check within the same project and topic, with a confidence score.",
+  },
+  {
+    k: "Built on",
+    v: "Next.js on Cloudflare Workers · Supabase Postgres · Gemini 3.5 Flash Lite · Notion · Resend. Built entirely by voice with Wispr Flow.",
+  },
+];
+
+// Soft frosted card — mirrors the app's .glass surface.
+function Panel({ className = "", children }: { className?: string; children: React.ReactNode }) {
+  return <div className={`glass rounded-2xl card-soft p-6 ${className}`}>{children}</div>;
+}
+
 export default function WelcomePage() {
   return (
-    <main className="min-h-screen bg-[#F4EFE6] text-[#1C1917] overflow-x-hidden">
-      <style>{`
-        @keyframes tysFadeUp { from { opacity:0; transform:translateY(20px);} to { opacity:1; transform:translateY(0);} }
-        @keyframes tysStamp { 0%{opacity:0; transform:scale(1.7) rotate(-10deg);} 55%{opacity:1; transform:scale(.92) rotate(-2deg);} 100%{transform:scale(1) rotate(-1deg);} }
-        @keyframes tysLineGrow { from { transform:scaleX(0);} to { transform:scaleX(1);} }
-        .tys-fade { animation: tysFadeUp .7s ease-out both; }
-        .tys-stamp { animation: tysStamp .75s cubic-bezier(.2,.8,.2,1) both; }
-        .tys-line { transform-origin:left; animation: tysLineGrow .8s ease-out both; }
-        @media (prefers-reduced-motion: reduce) { .tys-fade,.tys-stamp,.tys-line { animation: none; } }
-      `}</style>
-      <div className="max-w-6xl mx-auto px-6 py-10">
+    <main className="min-h-screen text-[#1A1715] overflow-x-hidden">
+      <div className="max-w-6xl mx-auto px-6 py-14">
         {/* Header */}
-        <header className="text-center border-b border-[#DDD3C1] pb-6 mb-10 tys-fade">
-          <div className="flex justify-center font-mono text-[10px] uppercase tracking-widest text-[#78716C] mb-4">
-            <span>Decision memory for teams · across calls, chats &amp; voice</span>
+        <header className="text-center mb-14">
+          <div className="text-[11px] uppercase tracking-widest text-[#9B9690] mb-5">
+            Decision memory for teams · across calls, chats &amp; voice
           </div>
-          <h1 className="font-serif text-6xl md:text-7xl font-black tracking-tight">Told You So</h1>
-          <p className="font-serif italic text-xl text-[#C0392B] mt-2">
+          <h1 className="font-serif text-6xl md:text-7xl font-semibold tracking-tight">
+            Told You So
+          </h1>
+          <p className="font-serif italic text-xl md:text-2xl text-[#C0392B] mt-3">
             the meeting agent that argues back.
           </p>
         </header>
 
         {/* Hero line */}
-        <section className="text-center max-w-3xl mx-auto mb-12">
-          <p className="font-serif text-2xl md:text-3xl leading-snug">
+        <section className="text-center max-w-3xl mx-auto mb-14">
+          <p className="font-serif text-2xl md:text-3xl leading-snug text-[#2B2825]">
             Decision logs failed because writing them is a chore.{" "}
             <span className="text-[#C0392B]">Told You So writes itself</span> from your voice and
             chats, then objects when you drift.
           </p>
-          <div className="mt-8 flex flex-wrap gap-4 justify-center">
+          <div className="mt-9 flex flex-wrap gap-3 justify-center">
             <a
               href="/login"
-              className="bg-[#C0392B] text-[#F4EFE6] font-mono text-sm uppercase tracking-wider px-8 py-3 hover:bg-[#962D22] transition-colors"
+              className="bg-[#1C1C1E] text-white rounded-xl px-7 py-3 text-sm font-medium hover:bg-[#333338] transition-colors"
             >
               Try the live demo →
             </a>
             <a
               href="/eval"
-              className="border border-[#1C1917] font-mono text-sm uppercase tracking-wider px-8 py-3 hover:bg-[#1C1917] hover:text-[#F4EFE6] transition-colors"
+              className="bg-white text-[#1A1715] border border-[#E0DED8] rounded-xl px-7 py-3 text-sm font-medium hover:bg-[#F1F0EC] transition-colors"
             >
               See the eval numbers
             </a>
           </div>
         </section>
 
-        {/* Bento: the "we said blue, we shipped green" demo moment */}
-        <section className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
-          <div className="md:col-span-2 border-2 border-[#C0392B] bg-[#FADBD8]/40 p-6">
-            <div className="font-serif text-4xl font-black text-[#C0392B] -rotate-1 mb-3">OBJECTION!</div>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 font-mono text-xs">
-              <div className="border-l-2 border-[#78716C] pl-3">
-                <div className="uppercase text-[10px] text-[#78716C] font-bold mb-1">Then — Oct 24</div>
-                <blockquote className="italic text-[#44403C]">
+        {/* The "we said Postgres, someone wants Mongo" demo moment */}
+        <section className="grid grid-cols-1 md:grid-cols-3 gap-5 mb-5">
+          <Panel className="md:col-span-2 !border-[#F3C9C2]">
+            <div className="inline-flex items-center gap-2 mb-4">
+              <span className="inline-flex items-center rounded-md bg-[#FBE9E7] text-[#C0392B] px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider">
+                Objection
+              </span>
+              <span className="text-xs text-[#9B9690]">conflict with an earlier decision</span>
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-5 text-sm">
+              <div className="border-l-2 border-[#E0DED8] pl-4">
+                <div className="uppercase text-[10px] text-[#9B9690] font-semibold tracking-wider mb-1">
+                  Then — Oct 24
+                </div>
+                <blockquote className="italic text-[#6B6560] leading-relaxed">
                   “We’re going with Postgres for the ledger, not Mongo. Money movement needs ACID.”
                 </blockquote>
               </div>
-              <div className="border-l-2 border-[#C0392B] pl-3">
-                <div className="uppercase text-[10px] text-[#C0392B] font-bold mb-1">Now</div>
-                <blockquote className="italic">
+              <div className="border-l-2 border-[#C0392B] pl-4">
+                <div className="uppercase text-[10px] text-[#C0392B] font-semibold tracking-wider mb-1">
+                  Now
+                </div>
+                <blockquote className="italic text-[#1A1715] leading-relaxed">
                   “Why are we on Postgres? Mongo is faster, let’s switch.”
                 </blockquote>
               </div>
             </div>
-            <p className="font-mono text-[11px] text-[#78716C] mt-4">
+            <p className="text-xs text-[#9B9690] mt-5">
               The receipt, not a gotcha. You keep the old decision in one click.
             </p>
-          </div>
-          <div className="border border-[#DDD3C1] bg-[#FAF7F2] p-6 flex flex-col justify-center">
-            <div className="font-serif text-5xl font-black">30s</div>
-            <p className="font-mono text-xs text-[#78716C] mt-2 uppercase tracking-wide">
+          </Panel>
+          <Panel className="flex flex-col justify-center">
+            <div className="font-serif text-5xl font-semibold">30s</div>
+            <p className="text-sm text-[#6B6560] mt-3 leading-relaxed">
               Voice → decisions → objection. Talk for 30 seconds after a call; it does the rest.
             </p>
-          </div>
+          </Panel>
         </section>
 
-        {/* Bento: four differentiators */}
-        <section className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+        {/* Four differentiators */}
+        <section className="grid grid-cols-1 md:grid-cols-2 gap-5 mb-5">
           {DIFFERENTIATORS.map((d) => (
-            <div key={d.k} className="border border-[#DDD3C1] bg-[#FAF7F2] p-6">
-              <h3 className="font-serif text-xl font-bold mb-2">{d.k}</h3>
-              <p className="font-mono text-xs text-[#44403C] leading-relaxed">{d.v}</p>
-            </div>
+            <Panel key={d.k}>
+              <h3 className="font-serif text-xl text-[#1A1715] mb-2">{d.k}</h3>
+              <p className="text-sm text-[#6B6560] leading-relaxed">{d.v}</p>
+            </Panel>
           ))}
         </section>
 
-        {/* Bento: who it's for + stack */}
-        <section className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-10">
-          <div className="border border-[#DDD3C1] bg-[#FAF7F2] p-6">
-            <div className="font-mono text-[10px] uppercase tracking-widest text-[#C0392B] mb-2">Who it’s for</div>
-            <p className="font-mono text-xs text-[#44403C] leading-relaxed">
-              Agencies and IT-services firms where a client re-opening a settled decision costs billable
-              hours. And engineering teams whose settled architecture keeps getting re-argued.
-            </p>
-          </div>
-          <div className="border border-[#DDD3C1] bg-[#FAF7F2] p-6">
-            <div className="font-mono text-[10px] uppercase tracking-widest text-[#C0392B] mb-2">How it works</div>
-            <p className="font-mono text-xs text-[#44403C] leading-relaxed">
-              Two steps, not one big prompt: extract decisions (Gemini 3.5 Flash Lite, JSON), then a
-              separate strict check within the same project and topic, with a confidence score.
-            </p>
-          </div>
-          <div className="border border-[#DDD3C1] bg-[#FAF7F2] p-6">
-            <div className="font-mono text-[10px] uppercase tracking-widest text-[#C0392B] mb-2">Built on</div>
-            <p className="font-mono text-xs text-[#44403C] leading-relaxed">
-              Next.js on Cloudflare Workers · Supabase Postgres · Gemini 3.5 Flash Lite · Notion ·
-              Resend. Built entirely by voice with Wispr Flow.
-            </p>
-          </div>
+        {/* Context: who it's for / how it works / stack */}
+        <section className="grid grid-cols-1 md:grid-cols-3 gap-5 mb-12">
+          {CONTEXT.map((c) => (
+            <Panel key={c.k}>
+              <div className="text-[10px] uppercase tracking-widest text-[#C0392B] font-semibold mb-2">
+                {c.k}
+              </div>
+              <p className="text-sm text-[#6B6560] leading-relaxed">{c.v}</p>
+            </Panel>
+          ))}
         </section>
 
-        <footer className="text-center border-t border-[#DDD3C1] pt-6 font-mono text-[11px] text-[#78716C]">
+        <footer className="text-center border-t border-[#ECECEA] pt-7 text-xs text-[#9B9690]">
           <p>
             Product Space × Wispr Flow — Agentic AI Hackathon, 2026 ·{" "}
-            <a href="/login" className="underline hover:text-[#C0392B]">
-              Enter the courtroom →
+            <a href="/login" className="underline hover:text-[#1A1715]">
+              Open the app →
             </a>
           </p>
-          <p className="mt-2 italic font-serif">
+          <p className="mt-2 italic font-serif text-sm text-[#6B6560]">
             Just talk. It cleans up the mess, remembers what you decided, and tells you so.
           </p>
         </footer>

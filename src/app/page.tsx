@@ -1,8 +1,8 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import AppShell from "@/components/AppShell";
-import { Card, PageTitle, SectionTitle, Pill, Chip, PrimaryButton } from "@/components/ui";
+import { Card, SectionTitle, Chip, PrimaryButton } from "@/components/ui";
 import { formatSpokenTokens, TokenPart } from "@/lib/messySpeech";
 import { ExtractionResult, ExtractedDecision, ExtractedAction } from "@/lib/extractor";
 import type { Objection, Maybe, TraceStep, Refinement } from "@/lib/agent";
@@ -60,6 +60,21 @@ export default function HomePage() {
   const [agentPath, setAgentPath] = useState<string | null>(null);
   const [verdicts, setVerdicts] = useState<Record<number, string>>({});
   const [timeline, setTimeline] = useState<TimelineDecision[]>([]);
+  const [view, setView] = useState<"Day" | "Week" | "Month" | "Year">("Week");
+  const [meetingLink, setMeetingLink] = useState("");
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Upload a .txt/.md transcript or WhatsApp export → fills the box (paste mode).
+  function handleFileUpload(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      setActiveTab("paste");
+      setRawInput(String(reader.result || ""));
+    };
+    reader.readAsText(file);
+  }
 
   // Load real projects; honour a ?project=<id> coming from the sidebar.
   useEffect(() => {
@@ -236,85 +251,157 @@ export default function HomePage() {
 
   return (
     <AppShell>
-      <PageTitle
-        aside={
-          <span className="rounded-full bg-[#F1F0EC] px-3.5 py-1.5 text-sm text-[#6B6560]">
-            60 AI calls / day
-          </span>
-        }
-      >
-        {currentProjectName}
-      </PageTitle>
-      <p className="text-[#9B9690] text-sm -mt-5 mb-8">{autoMeetingTitle}</p>
-
-      {/* Capture methods */}
-      <SectionTitle>Three ways to put info in</SectionTitle>
-      <div className="inline-flex flex-wrap gap-1 bg-[#F1F0EC] rounded-xl p-1 mb-5">
-        <Pill active={activeTab === "debrief"} onClick={() => setActiveTab("debrief")}>
-          🎙 Dictate with Wispr
-        </Pill>
-        <Pill active={activeTab === "paste"} onClick={() => setActiveTab("paste")}>
-          📋 Paste transcript / WhatsApp
-        </Pill>
-        <a href="/live">
-          <Pill>📡 Live meeting</Pill>
-        </a>
-      </div>
-
-      {/* Input card */}
-      <Card className="p-6 mb-8">
-        <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
-          <span className="font-serif text-lg text-[#1A1715]">
-            {activeTab === "debrief" ? "Dictate with Wispr" : "Paste a transcript or chat"}
-          </span>
-          <span className="text-xs text-[#9B9690]">
-            {activeTab === "debrief"
-              ? "Hold Fn and just talk — Wispr Flow types it"
-              : "Auto-detects Zoom/Meet, WhatsApp (iOS/Android), and Slack"}
-          </span>
-        </div>
-        <textarea
-          rows={activeTab === "debrief" ? 4 : 6}
-          value={rawInput}
-          onChange={(e) => setRawInput(e.target.value)}
-          placeholder={
-            activeTab === "debrief"
-              ? "e.g. Um, so quick recap. Harsh, no wait, I take the video, by Tuesday. Oh and the coffee machine is broken again, anyway…"
-              : "Paste a Zoom transcript, a WhatsApp export, or Slack lines (Name: text)…"
-          }
-          className="w-full rounded-xl border border-[#E0DED8] bg-[#FBFAF8] p-4 text-sm text-[#1A1715] focus:outline-none focus:border-[#B9B6AE] focus:ring-2 focus:ring-[#ECEAE5]"
-        />
-        <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
-          <div className="flex gap-3 text-xs text-[#9B9690]">
-            <button
-              type="button"
-              onClick={() =>
-                setRawInput(
-                  "Um, like, quick update. Harsh, no wait, I take the video, by Tuesday. The coffee machine broke again anyway."
-                )
-              }
-              className="underline hover:text-[#1A1715]"
-            >
-              Load sample debrief
-            </button>
-            <button
-              type="button"
-              onClick={() => {
-                setActiveTab("paste");
-                setRawInput(
-                  `[31/10/26, 2:05:12 PM] Rohan: Bro I'm in for the hackathon, adding Neha too, we can be 3 na?\n[31/10/26, 2:06:01 PM] Neha: Yes 3 is fine I think, they never said a limit\n[31/10/26, 2:07:33 PM] Akash: Let's aim to submit by midnight then`
-                );
-              }}
-              className="underline hover:text-[#1A1715]"
-            >
-              Load sample WhatsApp
-            </button>
+      <Card className="px-6 md:px-8 py-6 mb-8">
+        <div className="flex flex-wrap items-center justify-between gap-4">
+          <div>
+            <h1 className="font-serif text-4xl md:text-5xl font-semibold tracking-tight text-[#1A1715]">
+              {currentProjectName}
+            </h1>
+            <p className="text-[#9B9690] text-sm mt-1">{autoMeetingTitle}</p>
           </div>
-          <PrimaryButton onClick={handleExtract} disabled={isProcessing || !rawInput.trim()}>
-            {isProcessing ? "Analyzing…" : "Process"}
-          </PrimaryButton>
+          <div className="flex items-center gap-3">
+            <div className="hidden sm:inline-flex items-center rounded-full bg-[#F3F3F1] px-1 py-1 text-sm">
+              {(["Day", "Week", "Month", "Year"] as const).map((v) => (
+                <button
+                  key={v}
+                  onClick={() => setView(v)}
+                  className={`rounded-full px-3 py-1 transition-colors ${
+                    view === v
+                      ? "bg-white text-[#1A1715] shadow-sm font-medium"
+                      : "text-[#9B9690] hover:text-[#1A1715]"
+                  }`}
+                >
+                  {v}
+                </button>
+              ))}
+            </div>
+            <span className="rounded-full bg-[#F3F3F1] px-3.5 py-1.5 text-sm text-[#6B6560]">
+              60 AI calls left
+            </span>
+          </div>
         </div>
       </Card>
+
+      {/* Four ways to put info in — Bento */}
+      <SectionTitle>Four ways to put info in</SectionTitle>
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-5 mb-8">
+        {/* Dictate with Wispr */}
+        <Card className="p-6" hover>
+          <div className="flex items-center gap-3 mb-4">
+            <span className="text-xl">🎙️</span>
+            <h3 className="font-serif text-2xl text-[#1A1715]">Dictate with Wispr</h3>
+          </div>
+          <textarea
+            rows={4}
+            value={rawInput}
+            onChange={(e) => setRawInput(e.target.value)}
+            placeholder="Hold Fn and just talk — Wispr Flow types it. e.g. Um, so Harsh, no wait, I take the video by Tuesday…"
+            className="w-full rounded-xl border border-[#E7E5E0] bg-white/60 p-3.5 text-sm text-[#1A1715] focus:outline-none focus:border-[#B9B6AE] focus:ring-2 focus:ring-[#EDEDEB]"
+          />
+          <div className="mt-3 flex flex-wrap items-center justify-between gap-2">
+            <div className="flex gap-3 text-xs text-[#9B9690]">
+              <button
+                type="button"
+                onClick={() => {
+                  setActiveTab("debrief");
+                  setRawInput(
+                    "Um, like, quick update. Harsh, no wait, I take the video, by Tuesday. The coffee machine broke again anyway."
+                  );
+                }}
+                className="underline hover:text-[#1A1715]"
+              >
+                Sample debrief
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setActiveTab("paste");
+                  setRawInput(
+                    `[31/10/26, 2:05:12 PM] Rohan: Bro I'm in for the hackathon, adding Neha too, we can be 3 na?\n[31/10/26, 2:06:01 PM] Neha: Yes 3 is fine I think, they never said a limit\n[31/10/26, 2:07:33 PM] Akash: Let's aim to submit by midnight then`
+                  );
+                }}
+                className="underline hover:text-[#1A1715]"
+              >
+                Sample WhatsApp
+              </button>
+            </div>
+            <PrimaryButton onClick={handleExtract} disabled={isProcessing || !rawInput.trim()}>
+              {isProcessing ? "Analyzing…" : "Process"}
+            </PrimaryButton>
+          </div>
+        </Card>
+
+        {/* Upload Files */}
+        <Card className="p-6" hover>
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center gap-3">
+              <span className="text-xl">⬆️</span>
+              <h3 className="font-serif text-2xl text-[#1A1715]">Upload Files</h3>
+            </div>
+            <span
+              title="Works with WhatsApp and Slack too — export the chat (WhatsApp: Export chat → Without media) and drop the .txt here. No API needed."
+              className="cursor-help w-5 h-5 rounded-full border border-[#D8D6D0] text-[#9B9690] text-[11px] font-serif flex items-center justify-center hover:border-[#B9B6AE] hover:text-[#6B6560]"
+            >
+              i
+            </span>
+          </div>
+          <p className="text-sm text-[#6B6560] mb-4">Drag &amp; drop notes, transcripts, or chat exports.</p>
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept=".txt,.md,text/plain"
+            onChange={handleFileUpload}
+            className="hidden"
+          />
+          <button
+            onClick={() => fileInputRef.current?.click()}
+            className="w-full rounded-xl border border-dashed border-[#D8D6D0] bg-white/40 py-7 text-sm text-[#9B9690] hover:border-[#B9B6AE] hover:text-[#6B6560] transition-colors"
+          >
+            Drop files here or <span className="underline">browse</span>
+          </button>
+          {activeTab === "paste" && rawInput && (
+            <p className="mt-2 text-xs text-[#1C7A4A]">Loaded — review in the Dictate box, then Process.</p>
+          )}
+        </Card>
+
+        {/* Connect Calendar */}
+        <Card className="p-6">
+          <div className="flex items-center gap-3 mb-4">
+            <span className="text-xl">📅</span>
+            <h3 className="font-serif text-2xl text-[#1A1715]">Connect Calendar</h3>
+          </div>
+          <p className="text-sm text-[#6B6560] mb-4">Import events &amp; meetings automatically.</p>
+          <div className="flex items-center gap-2 text-sm">
+            <span className="text-[#6B6560]">Google Calendar</span>
+            <Chip tone="neutral">Coming soon</Chip>
+          </div>
+        </Card>
+
+        {/* Live Meeting */}
+        <Card className="p-6" hover>
+          <div className="flex items-center gap-3 mb-4">
+            <span className="text-xl">📡</span>
+            <h3 className="font-serif text-2xl text-[#1A1715]">Live Meeting</h3>
+          </div>
+          <input
+            value={meetingLink}
+            onChange={(e) => setMeetingLink(e.target.value)}
+            placeholder="Paste a Google Meet or Zoom link…"
+            className="w-full rounded-xl border border-[#E7E5E0] bg-white/60 px-3.5 py-2.5 text-sm text-[#1A1715] mb-3 focus:outline-none focus:border-[#B9B6AE] focus:ring-2 focus:ring-[#EDEDEB]"
+          />
+          <button
+            onClick={() => {
+              try {
+                if (meetingLink.trim()) sessionStorage.setItem("tys_meeting_link", meetingLink.trim());
+              } catch {}
+              window.location.href = "/live";
+            }}
+            className="w-full bg-[#1C1C1E] text-white rounded-xl py-3 text-sm font-medium hover:bg-[#333338] transition-colors"
+          >
+            Listen
+          </button>
+        </Card>
+      </div>
 
       {/* AI error */}
       {errorMsg && (
