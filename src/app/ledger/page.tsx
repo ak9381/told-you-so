@@ -132,10 +132,21 @@ export default function LedgerPage() {
     setMsg(`Reassigned to ${owner}`);
   }
 
+  // B7: two-step remove (inline "Remove? Yes / Cancel"); restore on failure.
+  const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
   async function deleteTask(id: string) {
+    setConfirmDelete(null);
+    const before = actions;
     setActions((prev) => prev.filter((a) => a.id !== id));
-    await fetch(`/api/ledger?actionId=${id}`, { method: "DELETE" });
-    setMsg("Task removed");
+    try {
+      const r = await fetch(`/api/ledger?actionId=${id}`, { method: "DELETE" });
+      if (!r.ok) throw new Error(`HTTP ${r.status}`);
+      setMsg("Task removed");
+    } catch (e) {
+      console.error("delete failed:", e);
+      setActions(before);
+      setMsg("Couldn't remove the task. Please try again.");
+    }
   }
 
   // Optimistic: update the row in place so the card never jumps on click.
@@ -399,13 +410,32 @@ export default function LedgerPage() {
                 >
                   Remind now
                 </button>
-                <button
-                  onClick={() => deleteTask(a.id)}
-                  title="Remove this task"
-                  className="rounded-lg border border-[#E0DED8] bg-white px-3 py-1.5 text-xs font-medium text-[#9B9690] hover:border-[#C0392B] hover:text-[#C0392B] transition-colors"
-                >
-                  Remove
-                </button>
+                {confirmDelete === a.id ? (
+                  <span className="flex items-center gap-1.5" role="group" aria-label="Confirm remove">
+                    <span className="text-xs text-[#C0392B]">Remove?</span>
+                    <button
+                      onClick={() => deleteTask(a.id)}
+                      className="rounded-lg border border-[#C0392B] bg-[#C0392B] px-3 py-1.5 text-xs font-medium text-white"
+                    >
+                      Yes, remove
+                    </button>
+                    <button
+                      onClick={() => setConfirmDelete(null)}
+                      autoFocus
+                      className="rounded-lg border border-[#E0DED8] bg-white px-3 py-1.5 text-xs font-medium text-[#6B6560]"
+                    >
+                      Cancel
+                    </button>
+                  </span>
+                ) : (
+                  <button
+                    onClick={() => setConfirmDelete(a.id)}
+                    title="Remove this task"
+                    className="rounded-lg border border-[#E0DED8] bg-white px-3 py-1.5 text-xs font-medium text-[#9B9690] hover:border-[#C0392B] hover:text-[#C0392B] transition-colors"
+                  >
+                    Remove
+                  </button>
+                )}
               </div>
             </div>
           </Card>
