@@ -1,0 +1,11 @@
+[Hackathon kickoff — Product Space × Wispr Flow Agentic AI Hackathon — 31 Oct]
+Sakshi: Welcome everyone to the Product Space and Wispr Flow Agentic AI Hackathon. Let me run through the rules before we start.
+Sakshi: First, the submission deadline is tonight, 11:59 PM IST, strictly. No extensions.
+Sakshi: Team size is maximum 2 people. No teams larger than two.
+Sakshi: You must pick one of the five problem statements shared in the form.
+Sakshi: No old projects. Everything must be built brand new today.
+Sakshi: The project must be deployed, with test credentials provided in the form.
+Sakshi: Your demo video must be 2 to 3 minutes, with a voiceover.
+Sakshi: Wispr Flow use is mandatory and carries 20 percent of the score.
+Sakshi: And the LinkedIn posts must be published by 1st November, 11:59 PM IST.
+Sakshi: That's it. Good luck, start building.

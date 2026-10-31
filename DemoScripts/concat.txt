@@ -1,0 +1,5 @@
+file 'seg_title.mp4'
+file 'seg_part1.mp4'
+file 'seg_part2.mp4'
+file 'seg_arch.mp4'
+file 'seg_endcard.mp4'

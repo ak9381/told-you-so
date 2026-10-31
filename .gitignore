@@ -52,3 +52,8 @@ next-env.d.ts
 
 .playwright-mcp/
 playwright-test-example.png
+
+# demo video files (too large for GitHub)
+DemoScripts/*.mov
+DemoScripts/*.mp4
+DemoScripts/SUBMISSION.md

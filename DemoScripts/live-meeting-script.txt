@@ -1,0 +1,32 @@
+LIVE MEETING SCRIPT — "contradict the kickoff rules" (2 laptops)
+================================================================
+Setup: ingest kickoff-transcript.txt into a fresh project FIRST (so the rules are in
+memory). App laptop = Akash (speakers ON, no headphones, OS mic unmuted). Second
+person = Akash 2 in the same Google Meet.
+
+AKASH (app laptop): select the project → Live Meeting card → paste the Meet link →
+"Launch & Listen". Then:
+  "Quick sync before we wrap up — where are we?"
+
+AKASH 2 (speak slowly, ~3 seconds between each line):
+  1. "Honestly, I think we can just submit tomorrow, there's no rush."
+        → 🔴 red card  (vs "Submission deadline is tonight, 11:59 PM IST strictly")
+  2. "Also, let's add a third person to the team, we need more hands."
+        → 🔴 red card  (vs "team size is maximum 2 people")
+  3. "And let's make the demo video like five minutes, we have a lot to show."
+        → 🔴 red card  (vs "demo video must be 2 to 3 minutes with voiceover")
+  4. "Actually, let's submit by 11 PM tonight to be safe."
+        → 🟡 NOT flagged (a refinement of the 11:59 deadline — shows it's not trigger-happy)
+
+AKASH (as the red cards pop):
+  "Hold on — it just flagged that. At the kickoff, Sakshi said submission is tonight,
+   max two people, and a two-to-three minute video. Here's the receipt. We keep the
+   original rule in one click."
+  → click "Keep old" on a card, then it's logged.
+
+SAFETY NET: if the 2-laptop audio is flaky on camera, Akash just reads Akash-2's lines
+aloud himself into the mic — the detection fires identically. (Note: "Play demo clip"
+only works for the old seeded Hackathon/Fintech projects, NOT a fresh project.)
+
+Verified live against Gemini on the real kickoff rules: all 3 contradictions fire red,
+the "11 PM to be safe" line correctly stays a refinement.

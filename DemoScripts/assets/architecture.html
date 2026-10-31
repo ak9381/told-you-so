@@ -1,0 +1,100 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>Architecture</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600&family=Inter:wght@400;500;600&display=swap');
+  * { margin:0; padding:0; box-sizing:border-box; }
+  html,body { width:1920px; height:1080px; background:#0A0A0B; color:#F5F5F4;
+    font-family:'Inter',system-ui,sans-serif; overflow:hidden; }
+  .wrap { width:1920px; height:1080px; padding:70px 90px; display:flex; flex-direction:column;
+    background:
+      radial-gradient(40% 50% at 20% 0%, rgba(16,185,129,.12), transparent 70%),
+      radial-gradient(45% 55% at 85% 20%, rgba(99,102,241,.12), transparent 72%),
+      #0A0A0B; }
+  .eyebrow { font-size:17px; letter-spacing:.28em; text-transform:uppercase; color:#A8A29E; font-weight:600; }
+  h1 { font-family:'Fraunces',serif; font-size:60px; font-weight:600; letter-spacing:-.01em; margin-top:10px; }
+  h1 .accent { color:#C0392B; font-style:italic; }
+  .flow { flex:1; display:flex; align-items:center; gap:34px; margin-top:34px; }
+  .col { display:flex; flex-direction:column; gap:22px; }
+  .card { background:rgba(255,255,255,.045); border:1px solid rgba(255,255,255,.1);
+    border-radius:20px; padding:26px 28px; backdrop-filter:blur(8px); }
+  .card .t { font-family:'Fraunces',serif; font-size:27px; font-weight:600; }
+  .card .s { font-size:17px; color:#A8A29E; margin-top:7px; line-height:1.45; }
+  .browser { width:430px; }
+  .worker { width:430px; border-color:rgba(16,185,129,.4); background:rgba(16,185,129,.07); }
+  .pill { display:inline-block; font-size:15px; color:#D6D3D1; background:rgba(255,255,255,.07);
+    border:1px solid rgba(255,255,255,.1); border-radius:999px; padding:6px 13px; margin:5px 6px 0 0; }
+  .services { width:470px; gap:18px; }
+  .svc { display:flex; align-items:center; gap:16px; background:rgba(255,255,255,.045);
+    border:1px solid rgba(255,255,255,.1); border-radius:16px; padding:18px 22px; }
+  .svc .ic { width:44px; height:44px; border-radius:11px; display:flex; align-items:center;
+    justify-content:center; font-size:22px; flex-shrink:0; }
+  .svc .n { font-size:21px; font-weight:600; }
+  .svc .d { font-size:15px; color:#A8A29E; margin-top:2px; }
+  .arrow { display:flex; flex-direction:column; align-items:center; justify-content:center; color:#6B6560; }
+  .arrow .line { width:52px; height:2px; background:linear-gradient(90deg,rgba(255,255,255,.08),rgba(255,255,255,.35)); position:relative; }
+  .arrow .line:after { content:''; position:absolute; right:-1px; top:-4px; border-left:9px solid rgba(255,255,255,.45);
+    border-top:5px solid transparent; border-bottom:5px solid transparent; }
+  .arrow .lbl { font-size:13px; color:#8A8A8F; margin-bottom:9px; text-align:center; max-width:70px; line-height:1.3; }
+  .foot { margin-top:26px; font-size:19px; color:#A8A29E; }
+  .foot b { color:#F5F5F4; font-weight:600; }
+  .brand { position:absolute; top:70px; right:90px; text-align:right; }
+  .brand .logo { font-family:'Fraunces',serif; font-weight:600; font-size:22px; line-height:1.05; }
+</style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="brand"><div class="logo">TOLD<br/>YOU SO</div></div>
+    <div class="eyebrow">How it works</div>
+    <h1>One agent. <span class="accent">Every source.</span> Real receipts.</h1>
+
+    <div class="flow">
+      <!-- Browser -->
+      <div class="col">
+        <div class="card browser">
+          <div class="t">🖥️ Browser — Next.js 15 UI</div>
+          <div class="s">Dictate · Upload · Live Meeting · Tasks</div>
+          <div>
+            <span class="pill">built-in mic</span><span class="pill">Wispr Flow</span>
+            <span class="pill">Meet / Zoom</span><span class="pill">WhatsApp / Slack</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="arrow"><div class="lbl">speech / chat / transcript</div><div class="line"></div></div>
+
+      <!-- Worker + Agent -->
+      <div class="col">
+        <div class="card worker">
+          <div class="t">☁️ Cloudflare Worker</div>
+          <div class="s">Middleware auth (Supabase SSR) · API routes · cron scheduled()</div>
+        </div>
+        <div class="card worker" style="border-color:rgba(255,255,255,.14);background:rgba(255,255,255,.05)">
+          <div class="t">🤖 Conflict agent</div>
+          <div class="s">1) Extract decisions + tasks → JSON<br/>
+          2) search_memory → verify_conflict → queue_action<br/>
+          <span style="color:#E86A5C">contradicts</span> / refines / new · confidence · reasoning trace</div>
+        </div>
+      </div>
+
+      <div class="arrow"><div class="lbl">extract · check vs memory</div><div class="line"></div></div>
+
+      <!-- Services -->
+      <div class="col services">
+        <div class="svc"><div class="ic" style="background:rgba(99,102,241,.18)">✦</div>
+          <div><div class="n">Gemini 3.5 Flash Lite</div><div class="d">extract + classify conflicts</div></div></div>
+        <div class="svc"><div class="ic" style="background:rgba(16,185,129,.18)">🗄️</div>
+          <div><div class="n">Supabase Postgres</div><div class="d">decisions · tasks · memory · pgvector</div></div></div>
+        <div class="svc"><div class="ic" style="background:rgba(255,255,255,.1)">📝</div>
+          <div><div class="n">Notion API</div><div class="d">tasks filed + real-time status sync</div></div></div>
+        <div class="svc"><div class="ic" style="background:rgba(192,57,43,.18)">✉️</div>
+          <div><div class="n">Resend</div><div class="d">reminder + weekly digest email</div></div></div>
+      </div>
+    </div>
+
+    <div class="foot">Input → <b>extract</b> → <b>check against prior decisions</b> → confirm → persist + file to Notion + schedule reminder.</div>
+  </div>
+</body>
+</html>

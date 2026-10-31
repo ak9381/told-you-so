@@ -1,0 +1,10 @@
+[Launch planning — 28 Oct]
+Akash: Okay team, let's lock the launch plan for Told You So.
+Akash: Decision one, we launch on Friday, November 7th. Hard date, no slipping.
+Akash: We're hosting on Cloudflare Workers, not Vercel. Cheaper at our scale.
+Akash: No calendar integration in v1. It's post-launch.
+Akash: On pricing, twenty dollars per seat per month, no free tier at launch.
+Akash: Action items, all on me for now. I'll find us a second team member by Wednesday.
+Akash: I'll record the two-minute demo video by Thursday night.
+Akash: And I'll write the landing page copy by Friday morning.
+Akash: Exactly. Let's ship.
