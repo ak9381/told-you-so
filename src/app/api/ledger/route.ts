@@ -35,9 +35,19 @@ export async function GET(request: NextRequest) {
 
 // Update an action's status (syncs to Notion) OR file it to Notion on demand.
 export async function POST(request: NextRequest) {
-  const { actionId, status, fileNotion } = await request.json();
+  const { actionId, status, fileNotion, owner, ownerId } = await request.json();
   if (!actionId) return NextResponse.json({ error: "actionId required" }, { status: 400 });
   const supabase = createServerClient();
+
+  // Reassign the task owner.
+  if (typeof owner === "string") {
+    const { error } = await supabase
+      .from("actions")
+      .update({ owner, owner_id: ownerId ?? null })
+      .eq("id", actionId);
+    if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+    return NextResponse.json({ ok: true });
+  }
 
   // "Send to Notion": file (or re-file) this task.
   if (fileNotion) {
@@ -94,4 +104,17 @@ export async function POST(request: NextRequest) {
     notionError = up.error ?? null;
   }
   return NextResponse.json({ ok: true, notionSynced, notionError });
+}
+
+// Remove a task.
+export async function DELETE(request: NextRequest) {
+  const actionId = new URL(request.url).searchParams.get("actionId");
+  if (!actionId) return NextResponse.json({ error: "actionId required" }, { status: 400 });
+  const supabase = createServerClient();
+  // Clear rows that reference this action first (avoid FK restrictions).
+  await supabase.from("notion_log").delete().eq("action_id", actionId);
+  await supabase.from("outbox").delete().eq("action_id", actionId);
+  const { error } = await supabase.from("actions").delete().eq("id", actionId);
+  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  return NextResponse.json({ ok: true });
 }

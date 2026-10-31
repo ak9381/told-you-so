@@ -49,6 +49,9 @@ export default function LedgerPage() {
   const [msg, setMsg] = useState("");
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<Filter>("all");
+  const [people, setPeople] = useState<{ id: string; name: string; email: string | null }[]>([]);
+  const [newMemberName, setNewMemberName] = useState("");
+  const [newMemberEmail, setNewMemberEmail] = useState("");
 
   const load = useCallback((silent = false) => {
     if (!silent) setLoading(true);
@@ -71,7 +74,50 @@ export default function LedgerPage() {
   }, []);
   useEffect(() => {
     load();
+    fetch("/api/people")
+      .then((r) => r.json())
+      .then((d) => setPeople(d.people ?? []))
+      .catch(() => {});
   }, [load]);
+
+  async function addMember() {
+    const name = newMemberName.trim();
+    if (!name) return;
+    const r = await fetch("/api/people", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name, email: newMemberEmail.trim() }),
+    });
+    const d = await r.json();
+    if (d.person) {
+      setPeople((prev) =>
+        prev.some((p) => p.id === d.person.id)
+          ? prev.map((p) => (p.id === d.person.id ? d.person : p))
+          : [...prev, d.person]
+      );
+      setNewMemberName("");
+      setNewMemberEmail("");
+      setMsg(`Added ${d.person.name} to the team`);
+    } else {
+      setMsg(d.error || "Could not add member");
+    }
+  }
+
+  async function reassignOwner(id: string, owner: string, ownerId: string | null) {
+    setActions((prev) => prev.map((a) => (a.id === id ? { ...a, owner } : a)));
+    await fetch("/api/ledger", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ actionId: id, owner, ownerId }),
+    });
+    setMsg(`Reassigned to ${owner}`);
+  }
+
+  async function deleteTask(id: string) {
+    setActions((prev) => prev.filter((a) => a.id !== id));
+    await fetch(`/api/ledger?actionId=${id}`, { method: "DELETE" });
+    setMsg("Task removed");
+  }
 
   // Optimistic: update the row in place so the card never jumps on click.
   async function setStatus(id: string, status: string) {
@@ -165,6 +211,58 @@ export default function LedgerPage() {
         </span>
       </div>
 
+      {/* Team */}
+      <Card className="p-5 mb-6">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <h3 className="font-serif text-lg text-[#1A1715]">Team</h3>
+            <p className="text-xs text-[#9B9690] mt-0.5">
+              Add people, then assign tasks to them below. Reminders go to each person&rsquo;s email.
+            </p>
+          </div>
+          <div className="flex flex-wrap items-center gap-2">
+            <input
+              value={newMemberName}
+              onChange={(e) => setNewMemberName(e.target.value)}
+              placeholder="Name"
+              className="w-32 rounded-lg border border-[#E7E5E0] px-3 py-2 text-sm focus:outline-none focus:border-[#B9B6AE]"
+            />
+            <input
+              value={newMemberEmail}
+              onChange={(e) => setNewMemberEmail(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") addMember();
+              }}
+              placeholder="Email (optional)"
+              className="w-48 rounded-lg border border-[#E7E5E0] px-3 py-2 text-sm focus:outline-none focus:border-[#B9B6AE]"
+            />
+            <button
+              onClick={addMember}
+              disabled={!newMemberName.trim()}
+              className="rounded-lg bg-[#1C1C1E] text-white px-4 py-2 text-sm font-medium hover:bg-[#333338] disabled:opacity-50 transition-colors"
+            >
+              Add member
+            </button>
+          </div>
+        </div>
+        {people.length > 0 && (
+          <div className="flex flex-wrap gap-2 mt-4">
+            {people.map((p) => (
+              <span
+                key={p.id}
+                className="inline-flex items-center gap-1.5 rounded-full bg-[#F1F0EC] px-3 py-1 text-xs text-[#6B6560]"
+              >
+                <span className="w-4 h-4 rounded-full bg-[#ECEAE5] flex items-center justify-center text-[9px] font-semibold text-[#6B6560]">
+                  {p.name.slice(0, 1).toUpperCase()}
+                </span>
+                {p.name}
+                {p.email ? <span className="text-[#9B9690]">· {p.email}</span> : null}
+              </span>
+            ))}
+          </div>
+        )}
+      </Card>
+
       {/* Status filter */}
       <div className="flex items-center gap-1.5 mb-5">
         {FILTERS.map((f) => (
@@ -204,7 +302,25 @@ export default function LedgerPage() {
             <div className="flex-1 min-w-[260px]">
               <div className="text-base font-semibold text-[#1A1715]">{a.title}</div>
               <div className="text-sm text-[#6B6560] mt-1.5">
-                Owner: <strong className="font-medium text-[#1A1715]">{a.owner || "—"}</strong>
+                Owner:{" "}
+                <select
+                  value={a.owner || ""}
+                  onChange={(e) => {
+                    const name = e.target.value;
+                    const p = people.find((x) => x.name === name);
+                    reassignOwner(a.id, name, p?.id ?? null);
+                  }}
+                  className="rounded-md border border-[#E0DED8] bg-white px-1.5 py-0.5 text-sm font-medium text-[#1A1715] focus:outline-none focus:border-[#9B9690]"
+                >
+                  {a.owner && !people.some((p) => p.name === a.owner) && (
+                    <option value={a.owner}>{a.owner}</option>
+                  )}
+                  {people.map((p) => (
+                    <option key={p.id} value={p.name}>
+                      {p.name}
+                    </option>
+                  ))}
+                </select>
                 {a.due_date ? (
                   <> · Due: <strong className="font-medium text-[#1A1715]">{new Date(a.due_date).toLocaleString()}</strong></>
                 ) : (
@@ -257,12 +373,21 @@ export default function LedgerPage() {
                   );
                 })}
               </div>
-              <button
-                onClick={() => remindNow(a.id)}
-                className="rounded-lg border border-[#E0DED8] bg-white px-3 py-1.5 text-xs font-medium text-[#6B6560] hover:bg-[#F1F0EC] hover:text-[#1A1715] transition-colors"
-              >
-                Remind now
-              </button>
+              <div className="flex gap-1.5">
+                <button
+                  onClick={() => remindNow(a.id)}
+                  className="rounded-lg border border-[#E0DED8] bg-white px-3 py-1.5 text-xs font-medium text-[#6B6560] hover:bg-[#F1F0EC] hover:text-[#1A1715] transition-colors"
+                >
+                  Remind now
+                </button>
+                <button
+                  onClick={() => deleteTask(a.id)}
+                  title="Remove this task"
+                  className="rounded-lg border border-[#E0DED8] bg-white px-3 py-1.5 text-xs font-medium text-[#9B9690] hover:border-[#C0392B] hover:text-[#C0392B] transition-colors"
+                >
+                  Remove
+                </button>
+              </div>
             </div>
           </Card>
         ))}
