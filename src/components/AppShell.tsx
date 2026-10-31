@@ -8,9 +8,10 @@ interface Project {
   name: string;
 }
 
-// Secondary tools (kept out of the main sidebar to match the simple design).
+// Tools nav — now lives in the sticky top header (per the design image).
+// "Live" is the home workspace (the live listener folded into the home page).
 const TOOLS = [
-  { href: "/live", label: "Live" },
+  { href: "/", label: "Live" },
   { href: "/ledger", label: "Ledger" },
   { href: "/outbox", label: "Outbox" },
   { href: "/eval", label: "Eval" },
@@ -83,26 +84,6 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
           })}
         </div>
 
-        {/* Tools (secondary nav) */}
-        <div className="px-3 py-2 border-t border-[#EFEEEA] flex flex-wrap gap-1">
-          {TOOLS.map((t) => {
-            const active = pathname === t.href;
-            return (
-              <a
-                key={t.href}
-                href={t.href}
-                className={`rounded-lg px-2.5 py-1 text-xs font-medium transition-colors ${
-                  active
-                    ? "bg-[#F1F0EC] text-[#1A1715]"
-                    : "text-[#9B9690] hover:text-[#1A1715] hover:bg-[#F7F6F3]"
-                }`}
-              >
-                {t.label}
-              </a>
-            );
-          })}
-        </div>
-
         <div className="p-4 border-t border-[#EFEEEA]">
           <div className="flex items-center gap-3 mb-2">
             <div className="w-8 h-8 rounded-full bg-[#ECEAE5] flex items-center justify-center text-xs font-semibold text-[#6B6560]">
@@ -122,7 +103,31 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
         </div>
       </aside>
 
-      <main className="flex-1 min-w-0 px-6 md:px-10 py-8 max-w-6xl">{children}</main>
+      <main className="flex-1 min-w-0 flex flex-col">
+        {/* Sticky glass header with the tools nav */}
+        <header className="sticky top-0 z-30 glass-shell border-b border-white/60">
+          <nav className="max-w-6xl px-6 md:px-10 py-3 flex items-center justify-end gap-1">
+            {TOOLS.map((t) => {
+              const active = t.href === "/" ? pathname === "/" : pathname === t.href;
+              return (
+                <a
+                  key={t.href}
+                  href={t.href}
+                  className={`rounded-lg px-3 py-1.5 text-sm font-medium transition-colors ${
+                    active
+                      ? "bg-[#F1F0EC] text-[#1A1715]"
+                      : "text-[#6B6560] hover:text-[#1A1715] hover:bg-[#F7F6F3]"
+                  }`}
+                >
+                  {t.label}
+                </a>
+              );
+            })}
+          </nav>
+        </header>
+
+        <div className="px-6 md:px-10 py-8 max-w-6xl w-full">{children}</div>
+      </main>
     </div>
   );
 }

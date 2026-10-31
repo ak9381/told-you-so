@@ -4,14 +4,17 @@ import React from "react";
 export function Card({
   className = "",
   hover = false,
+  id,
   children,
 }: {
   className?: string;
   hover?: boolean;
+  id?: string;
   children: React.ReactNode;
 }) {
   return (
     <div
+      id={id}
       className={`glass rounded-2xl card-soft ${hover ? "card-hover" : ""} ${className}`}
     >
       {children}

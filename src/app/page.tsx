@@ -1,8 +1,8 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import AppShell from "@/components/AppShell";
-import { Card, SectionTitle, Chip, PrimaryButton } from "@/components/ui";
+import { Card, SectionTitle, Chip, PrimaryButton, SecondaryButton } from "@/components/ui";
 import { formatSpokenTokens, TokenPart } from "@/lib/messySpeech";
 import { ExtractionResult, ExtractedDecision, ExtractedAction } from "@/lib/extractor";
 import type { Objection, Maybe, TraceStep, Refinement } from "@/lib/agent";
@@ -41,6 +41,69 @@ const DEFAULT_PROJECTS: ProjectOption[] = [
   { id: "proj-client", name: "Client website" },
 ];
 
+// --- Live Meeting (folded in from the old /live page) ---
+interface LiveLine {
+  id: number;
+  text: string;
+  speaker: string;
+  ts: string;
+}
+interface LiveCard {
+  verdict: "contradicts" | "refines" | "new";
+  quote: string;
+  topic: string;
+  old_quote?: string;
+  old_speaker?: string;
+  old_meeting_seq?: number;
+  reasoning?: string;
+  ts: string;
+}
+
+// Mic-free demo scripts, per project (safety net for the live demo).
+const DEMO_CLIPS: Record<string, { speaker: string; text: string }[]> = {
+  "Hackathon submission": [
+    { speaker: "Akash", text: "Okay everyone, quick sync on the hackathon submission." },
+    { speaker: "Rohan", text: "I think the demo video can be like five minutes, we have a lot to show." },
+    { speaker: "Akash", text: "And the LinkedIn posts we can do by Monday, right?" },
+    { speaker: "Neha", text: "Let's submit by 11 PM tonight to be safe." },
+    { speaker: "Akash", text: "Decided: Priya owns the demo video, due 10:30 tonight." },
+    { speaker: "Akash", text: "Okay, ending the meeting." },
+  ],
+  "Fintech recon dashboard": [
+    { speaker: "Akash", text: "Welcome Ankit, quick sync on the dashboard." },
+    { speaker: "Ankit", text: "Why are we on Postgres? Mongo is faster for dashboards, let's switch." },
+    { speaker: "Ankit", text: "And let's just do polling, webhooks are overkill for an MVP." },
+    { speaker: "Ankit", text: "Clerk for auth is fine by me, maybe with Google login only." },
+    { speaker: "Akash", text: "Decided: Ankit owns the dashboard read-model spec, due Tuesday." },
+  ],
+};
+const DEFAULT_CLIP = DEMO_CLIPS["Hackathon submission"];
+
+// Turn a pasted Google Meet / Zoom URL into a browser-joinable URL.
+// Returns null if the link is neither Meet nor Zoom.
+function normalizeMeetingLink(raw: string): string | null {
+  const trimmed = raw.trim();
+  if (!trimmed) return null;
+  let u: URL;
+  try {
+    u = new URL(trimmed.startsWith("http") ? trimmed : `https://${trimmed}`);
+  } catch {
+    return null;
+  }
+  const host = u.hostname.toLowerCase();
+  if (host === "meet.google.com") return u.toString();
+  if (host === "zoom.us" || host.endsWith(".zoom.us")) {
+    const m = u.pathname.match(/\/(?:j|wc\/join)\/(\d+)/);
+    if (m) {
+      const id = m[1];
+      const pwd = u.searchParams.get("pwd");
+      const q = pwd ? `?pwd=${encodeURIComponent(pwd)}` : "";
+      return `https://zoom.us/wc/join/${id}${q}`;
+    }
+  }
+  return null;
+}
+
 export default function HomePage() {
   const [selectedProjectId, setSelectedProjectId] = useState<string>("proj-hackathon");
   const [projects, setProjects] = useState<ProjectOption[]>(DEFAULT_PROJECTS);
@@ -64,6 +127,24 @@ export default function HomePage() {
   const [meetingLink, setMeetingLink] = useState("");
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  // Live Meeting state (folded in from /live).
+  const [listening, setListening] = useState(false);
+  const [interim, setInterim] = useState("");
+  const [liveLines, setLiveLines] = useState<LiveLine[]>([]);
+  const [liveCards, setLiveCards] = useState<LiveCard[]>([]);
+  const [lastSpeaker, setLastSpeaker] = useState("Speaker ?");
+  const [liveStatus, setLiveStatus] = useState("");
+  const [speechSupported, setSpeechSupported] = useState(true);
+  const [linkError, setLinkError] = useState("");
+  const [launchHint, setLaunchHint] = useState("");
+  const liveStartRef = useRef<number>(Date.now());
+  const liveLineId = useRef(0);
+  const liveInFlight = useRef(false);
+  const recognitionRef = useRef<unknown>(null);
+
+  const liveOpen =
+    meetingLink.trim().length > 0 || listening || liveLines.length > 0 || liveCards.length > 0;
+
   // Upload a .txt/.md transcript or WhatsApp export → fills the box (paste mode).
   function handleFileUpload(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
@@ -75,6 +156,179 @@ export default function HomePage() {
     };
     reader.readAsText(file);
   }
+
+  // Feature-detect Web Speech once.
+  useEffect(() => {
+    if (
+      typeof window !== "undefined" &&
+      !("webkitSpeechRecognition" in window || "SpeechRecognition" in window)
+    ) {
+      setSpeechSupported(false);
+    }
+  }, []);
+
+  const mmss = () => {
+    const s = Math.floor((Date.now() - liveStartRef.current) / 1000);
+    return `${String(Math.floor(s / 60)).padStart(2, "0")}:${String(s % 60).padStart(2, "0")}`;
+  };
+
+  const addLiveLine = (speaker: string, text: string) => {
+    liveLineId.current += 1;
+    setLiveLines((prev) => [...prev, { id: liveLineId.current, text, speaker, ts: mmss() }]);
+  };
+
+  // Send new text to the live-check route (one request in flight).
+  const sendForCheck = useCallback(
+    async (text: string, demo = false) => {
+      if (!selectedProjectId || (!demo && liveInFlight.current)) return;
+      if (!demo) liveInFlight.current = true;
+      try {
+        const res = await fetch("/api/live-check", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ newText: text, projectId: selectedProjectId, demo }),
+        });
+        const data = await res.json();
+        if (data.results?.length) {
+          const stamped: LiveCard[] = data.results.map((r: LiveCard) => ({ ...r, ts: mmss() }));
+          setLiveCards((prev) => [...stamped, ...prev]);
+        }
+      } catch {
+        /* ignore transient live-check errors */
+      } finally {
+        if (!demo) liveInFlight.current = false;
+      }
+    },
+    [selectedProjectId]
+  );
+
+  function startListening() {
+    const W = window as unknown as {
+      webkitSpeechRecognition?: new () => unknown;
+      SpeechRecognition?: new () => unknown;
+    };
+    const Rec = W.SpeechRecognition || W.webkitSpeechRecognition;
+    if (!Rec) {
+      setSpeechSupported(false);
+      return;
+    }
+    liveStartRef.current = Date.now();
+    const rec = new Rec() as {
+      continuous: boolean;
+      interimResults: boolean;
+      lang: string;
+      onresult: (e: unknown) => void;
+      onerror: () => void;
+      start: () => void;
+      stop: () => void;
+    };
+    rec.continuous = true;
+    rec.interimResults = true;
+    rec.lang = "en-IN";
+    let buffer: string[] = [];
+    rec.onresult = (e: unknown) => {
+      const ev = e as {
+        resultIndex: number;
+        results: ArrayLike<{ 0: { transcript: string }; isFinal: boolean }>;
+      };
+      let interimText = "";
+      for (let i = ev.resultIndex; i < ev.results.length; i++) {
+        const r = ev.results[i];
+        if (r.isFinal) {
+          const t = r[0].transcript.trim();
+          if (t) {
+            addLiveLine("Speaker ?", t);
+            buffer.push(t);
+            if (buffer.length >= 2) {
+              sendForCheck(buffer.join(" "));
+              buffer = [];
+            }
+          }
+        } else {
+          interimText += r[0].transcript;
+        }
+      }
+      setInterim(interimText);
+    };
+    rec.onerror = () => setLiveStatus("Mic error — use Play demo clip.");
+    rec.start();
+    recognitionRef.current = rec;
+    setListening(true);
+    setLiveStatus("Listening… speak near the mic.");
+    const flush = setInterval(() => {
+      if (buffer.length) {
+        sendForCheck(buffer.join(" "));
+        buffer = [];
+      }
+    }, 15000);
+    (rec as unknown as { _flush?: number })._flush = flush as unknown as number;
+  }
+
+  function stopListening() {
+    const rec = recognitionRef.current as { stop?: () => void; _flush?: number } | null;
+    if (rec?.stop) rec.stop();
+    if (rec?._flush) clearInterval(rec._flush);
+    setListening(false);
+    setInterim("");
+    setLiveStatus("");
+  }
+
+  async function playDemoClip() {
+    stopListening();
+    liveStartRef.current = Date.now();
+    setLiveLines([]);
+    setLiveCards([]);
+    setLiveStatus("Playing demo clip…");
+    const clip = DEMO_CLIPS[currentProjectName] ?? DEFAULT_CLIP;
+    for (const line of clip) {
+      addLiveLine(line.speaker, line.text);
+      await sendForCheck(line.text, true);
+      await new Promise((r) => setTimeout(r, 1200));
+    }
+    setLiveStatus("Demo clip finished.");
+  }
+
+  // Open the meeting popup from a pasted link, then start listening.
+  function launchFromLink() {
+    setLinkError("");
+    setLaunchHint("");
+    const url = normalizeMeetingLink(meetingLink);
+    if (!url) {
+      setLinkError("Only Google Meet and Zoom links are supported for now.");
+      return;
+    }
+    const sw = typeof window !== "undefined" ? window.screen.availWidth : 1280;
+    const sh = typeof window !== "undefined" ? window.screen.availHeight : 800;
+    const w = Math.floor(sw / 2);
+    window.open(url, "_blank", `width=${w},height=${sh},left=0,top=0`);
+    if (speechSupported) {
+      setLaunchHint("Sign in if asked, join the call, and we'll start listening.");
+      startListening();
+    } else {
+      setLaunchHint("Open this in Chrome to listen live — or use Play Demo Clip.");
+    }
+  }
+
+  // End the live meeting: pour the transcript into the tray via the full agent.
+  function endLiveMeeting() {
+    stopListening();
+    const transcript = liveLines.map((l) => `${l.speaker}: ${l.text}`).join("\n");
+    if (!transcript.trim()) return;
+    setActiveTab("paste");
+    setRawInput(transcript);
+    handleExtract(transcript);
+    try {
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    } catch {}
+  }
+
+  function tagSpeaker(id: number, name: string) {
+    if (!name) return;
+    setLastSpeaker(name);
+    setLiveLines((prev) => prev.map((l) => (l.id === id ? { ...l, speaker: name } : l)));
+  }
+
+  const liveObjectionCount = liveCards.filter((c) => c.verdict === "contradicts").length;
 
   // Load real projects; honour a ?project=<id> coming from the sidebar.
   useEffect(() => {
@@ -105,18 +359,6 @@ export default function HomePage() {
     loadTimeline(selectedProjectId);
   }, [selectedProjectId]);
 
-  // If arriving from a live meeting (End Meeting), prefill the paste box.
-  useEffect(() => {
-    try {
-      const t = sessionStorage.getItem("tys_live_transcript");
-      if (t) {
-        setActiveTab("paste");
-        setRawInput(t);
-        sessionStorage.removeItem("tys_live_transcript");
-      }
-    } catch {}
-  }, []);
-
   const now = new Date();
   const formattedTime = now.toLocaleDateString("en-IN", {
     day: "numeric",
@@ -129,8 +371,9 @@ export default function HomePage() {
   const currentProjectName = projects.find((p) => p.id === selectedProjectId)?.name || "Meeting";
   const autoMeetingTitle = `${currentProjectName} #2 · ${formattedTime} IST`;
 
-  async function handleExtract() {
-    if (!rawInput.trim()) return;
+  async function handleExtract(textArg?: string) {
+    const input = typeof textArg === "string" ? textArg : rawInput;
+    if (!input.trim()) return;
     setIsProcessing(true);
     setCommittedStatus(null);
     setErrorMsg(null);
@@ -325,7 +568,7 @@ export default function HomePage() {
                 Sample WhatsApp
               </button>
             </div>
-            <PrimaryButton onClick={handleExtract} disabled={isProcessing || !rawInput.trim()}>
+            <PrimaryButton onClick={() => handleExtract()} disabled={isProcessing || !rawInput.trim()}>
               {isProcessing ? "Analyzing…" : "Process"}
             </PrimaryButton>
           </div>
@@ -385,23 +628,184 @@ export default function HomePage() {
           </div>
           <input
             value={meetingLink}
-            onChange={(e) => setMeetingLink(e.target.value)}
+            onChange={(e) => {
+              setMeetingLink(e.target.value);
+              if (linkError) setLinkError("");
+            }}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") launchFromLink();
+            }}
             placeholder="Paste a Google Meet or Zoom link…"
             className="w-full rounded-xl border border-[#E7E5E0] bg-white/60 px-3.5 py-2.5 text-sm text-[#1A1715] mb-3 focus:outline-none focus:border-[#B9B6AE] focus:ring-2 focus:ring-[#EDEDEB]"
           />
           <button
-            onClick={() => {
-              try {
-                if (meetingLink.trim()) sessionStorage.setItem("tys_meeting_link", meetingLink.trim());
-              } catch {}
-              window.location.href = "/live";
-            }}
-            className="w-full bg-[#1C1C1E] text-white rounded-xl py-3 text-sm font-medium hover:bg-[#333338] transition-colors"
+            onClick={launchFromLink}
+            disabled={!meetingLink.trim()}
+            className="w-full bg-[#1C1C1E] text-white rounded-xl py-3 text-sm font-medium hover:bg-[#333338] disabled:opacity-50 transition-colors"
           >
-            Listen
+            Launch &amp; Listen
           </button>
+          {linkError && <p className="text-sm text-[#C0392B] mt-2">{linkError}</p>}
+          <p className="text-xs text-[#9B9690] mt-3">
+            Paste a link to open the call and reveal the live listener below — or{" "}
+            <button
+              type="button"
+              onClick={playDemoClip}
+              className="underline hover:text-[#6B6560]"
+            >
+              play a demo clip
+            </button>
+            .
+          </p>
         </Card>
       </div>
+
+      {/* Live meeting listener — revealed once a link is pasted or a clip plays */}
+      {liveOpen && (
+        <Card className="p-6 mb-8" id="live">
+          <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
+            <div className="flex items-center gap-2">
+              <span className="text-xl">📡</span>
+              <h3 className="font-serif text-2xl text-[#1A1715]">
+                Live meeting — {currentProjectName}
+              </h3>
+            </div>
+            <Chip tone={liveObjectionCount > 0 ? "accent" : "neutral"}>
+              {liveObjectionCount} objection{liveObjectionCount === 1 ? "" : "s"}
+            </Chip>
+          </div>
+
+          {launchHint && <p className="text-sm text-[#6B6560] mb-3">{launchHint}</p>}
+
+          <div className="flex flex-wrap gap-3 items-center">
+            {!listening ? (
+              <PrimaryButton onClick={startListening} disabled={!speechSupported || !selectedProjectId}>
+                ● Start listening
+              </PrimaryButton>
+            ) : (
+              <PrimaryButton onClick={stopListening}>■ Stop</PrimaryButton>
+            )}
+            <SecondaryButton onClick={playDemoClip} disabled={!selectedProjectId}>
+              ▶ Play demo clip
+            </SecondaryButton>
+            {liveLines.length > 0 && (
+              <SecondaryButton onClick={endLiveMeeting}>End meeting → tray</SecondaryButton>
+            )}
+            {liveStatus && <span className="text-sm text-[#6B6560]">{liveStatus}</span>}
+            {!speechSupported && (
+              <span className="text-sm text-[#C0392B]">
+                Web Speech not available here — use Play demo clip.
+              </span>
+            )}
+          </div>
+          <p className="text-xs text-[#9B9690] mt-3 mb-5">
+            Uses Chrome&rsquo;s built-in speech recognition (not Wispr), so it doesn&rsquo;t touch your Wispr word count.
+          </p>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            {/* Live transcript */}
+            <div className="rounded-xl border border-[#E7E5E0] bg-white/50 p-5">
+              <h4 className="font-serif text-lg text-[#1A1715] mb-3">Live transcript</h4>
+              <div className="space-y-2.5 text-sm max-h-[360px] overflow-y-auto">
+                {liveLines.length === 0 && (
+                  <p className="text-[#9B9690]">Nothing yet — start listening or play the demo clip.</p>
+                )}
+                {liveLines.map((l) => (
+                  <div key={l.id} className="flex items-start gap-2.5">
+                    <span className="text-[#9B9690] shrink-0 tabular-nums text-xs pt-0.5">{l.ts}</span>
+                    <input
+                      value={l.speaker}
+                      onChange={(e) => tagSpeaker(l.id, e.target.value)}
+                      onFocus={(e) => {
+                        if (e.target.value === "Speaker ?")
+                          tagSpeaker(l.id, lastSpeaker === "Speaker ?" ? "" : lastSpeaker);
+                      }}
+                      className={`w-24 shrink-0 bg-transparent border-b border-dashed text-sm focus:outline-none ${
+                        l.speaker === "Speaker ?"
+                          ? "border-[#C0392B] text-[#C0392B]"
+                          : "border-[#E0DED8] text-[#6B6560]"
+                      }`}
+                    />
+                    <span className="text-[#1A1715]">{l.text}</span>
+                  </div>
+                ))}
+                {interim && (
+                  <div className="flex items-start gap-2.5 opacity-50">
+                    <span className="text-[#9B9690] shrink-0 text-xs pt-0.5">…</span>
+                    <span className="text-[#9B9690] italic">{interim}</span>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Live objections */}
+            <div className="rounded-xl border border-[#E7E5E0] bg-white/50 p-5">
+              <h4 className="font-serif text-lg text-[#1A1715] mb-3">Live objections</h4>
+              <div className="space-y-3 max-h-[360px] overflow-y-auto">
+                {liveCards.length === 0 && (
+                  <p className="text-sm text-[#9B9690]">No conflicts flagged yet.</p>
+                )}
+                {liveCards.map((c, i) => {
+                  if (c.verdict === "contradicts") {
+                    return (
+                      <div key={i} className="rounded-xl border border-[#C0392B]/40 bg-[#FBE9E7] p-4">
+                        <div className="flex items-center justify-between mb-2.5">
+                          <span className="font-serif text-base font-semibold text-[#C0392B]">
+                            Objection
+                          </span>
+                          <span className="text-[10px] uppercase tracking-wider text-[#C0392B]">
+                            {c.topic} · {c.ts}
+                          </span>
+                        </div>
+                        <div className="text-sm space-y-1.5">
+                          <div className="text-[#6B6560]">
+                            <span className="uppercase text-[10px] font-semibold tracking-wider">Then</span>{" "}
+                            — &ldquo;{c.old_quote}&rdquo;
+                            {c.old_speaker ? ` — ${c.old_speaker}` : ""}
+                            {c.old_meeting_seq ? ` · M#${c.old_meeting_seq}` : ""}
+                          </div>
+                          <div className="text-[#1A1715]">
+                            <span className="uppercase text-[10px] font-semibold tracking-wider text-[#C0392B]">
+                              Now
+                            </span>{" "}
+                            — &ldquo;{c.quote}&rdquo;
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  }
+                  if (c.verdict === "refines") {
+                    return (
+                      <div key={i} className="rounded-xl bg-[#F1F0EC] border border-[#E7E5E0] px-4 py-3">
+                        <div className="flex items-center gap-2 mb-1">
+                          <Chip tone="neutral">Refinement</Chip>
+                          <span className="text-[10px] uppercase tracking-wider text-[#9B9690]">
+                            not flagged · {c.ts}
+                          </span>
+                        </div>
+                        <div className="text-sm text-[#1A1715]">&ldquo;{c.quote}&rdquo;</div>
+                      </div>
+                    );
+                  }
+                  return (
+                    <div key={i} className="rounded-xl bg-white border border-[#E7E5E0] px-4 py-3">
+                      <div className="flex items-center gap-2 mb-1">
+                        <Chip tone="green">New decision</Chip>
+                        <span className="text-[10px] uppercase tracking-wider text-[#9B9690]">{c.ts}</span>
+                      </div>
+                      <div className="text-sm text-[#1A1715]">&ldquo;{c.quote}&rdquo;</div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
+
+          <p className="text-sm text-[#6B6560] mt-5 text-center">
+            After the call, hit <span className="font-medium">End meeting → tray</span> to run the full agent and review before saving.
+          </p>
+        </Card>
+      )}
 
       {/* AI error */}
       {errorMsg && (
