@@ -2,19 +2,33 @@ import { NextRequest, NextResponse } from "next/server";
 import { parseMeetingInput, InputSourceType } from "@/lib/parser";
 import { extractMeetingItems, ExtractionError } from "@/lib/extractor";
 import { runAgent, type AgentResult } from "@/lib/agent";
-import { getRequestUser } from "@/lib/supabase-ssr";
+import { requireUser, readJson, canAccessProject, jsonError } from "@/lib/api-guard";
+import { createServerClient } from "@/lib/supabase";
+
+const MAX_RAW_CHARS = 200_000;
 
 export async function POST(request: NextRequest) {
   try {
-    const { rawText, sourceType, userName, projectId } = await request.json();
+    const auth = await requireUser(request);
+    if (auth.error) return auth.error;
+    const parsed = await readJson(request);
+    if (parsed.error) return parsed.error;
+    const { rawText, sourceType, userName, projectId } = parsed.body as {
+      rawText?: unknown; sourceType?: unknown; userName?: unknown; projectId?: unknown;
+    };
 
-    if (!rawText || typeof rawText !== "string") {
-      return NextResponse.json({ error: "rawText is required" }, { status: 400 });
+    if (!rawText || typeof rawText !== "string" || !rawText.trim()) {
+      return NextResponse.json({ error: "Please add some text to process." }, { status: 400 });
+    }
+    if (rawText.length > MAX_RAW_CHARS) {
+      return jsonError("That's too long to process at once (max 200,000 characters). Split it into smaller parts.", 413);
+    }
+    if (projectId != null && (typeof projectId !== "string" || !(await canAccessProject(createServerClient(), projectId, auth.user.id)))) {
+      return jsonError("Project not found.", 404);
     }
 
-    const currentUserName = userName || "Akash";
-    const user = await getRequestUser(request);
-    const userId = user?.id ?? "00000000-0000-0000-0000-000000000000";
+    const currentUserName = (typeof userName === "string" && userName.trim().slice(0, 80)) || "Akash";
+    const userId = auth.user.id;
     const { utterances, detectedType } = parseMeetingInput(
       rawText,
       sourceType as InputSourceType,
