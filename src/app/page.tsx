@@ -4,6 +4,7 @@ import { DEMO_CLIPS, clipTranscript } from "@/lib/demo-clips";
 import { useState, useEffect, useRef, useCallback } from "react";
 import AppShell from "@/components/AppShell";
 import { fetchProjectsClient } from "@/lib/client-cache";
+import { log } from "@/lib/log";
 import { Card, SectionTitle, Chip, PrimaryButton, SecondaryButton } from "@/components/ui";
 import { formatSpokenTokens, TokenPart } from "@/lib/messySpeech";
 import { ExtractionResult, ExtractedDecision, ExtractedAction } from "@/lib/extractor";
@@ -427,7 +428,7 @@ export default function HomePage() {
       .then((d) => setTimeline(d.decisions ?? []))
       .catch((e) => {
         lastTimelinePid.current = null;
-        console.error("timeline request failed:", e);
+        log.error("timeline request failed", e);
       });
   }, []);
 
@@ -451,7 +452,7 @@ export default function HomePage() {
             .then((d) => setTimeline(d.decisions ?? []))
             .catch((e) => {
               lastTimelinePid.current = null;
-              console.error("timeline request failed:", e);
+              log.error("timeline request failed", e);
             });
         })()
       : Promise.resolve(null);
@@ -468,7 +469,7 @@ export default function HomePage() {
         return null;
       })
       .catch((e) => {
-        console.error("projects load failed:", e);
+        log.error("projects load failed", e);
         setErrorMsg("Couldn't load your projects. Check your connection and refresh.");
         return null;
       })
@@ -563,7 +564,7 @@ export default function HomePage() {
         setCheckedActions(actMap);
       }
     } catch (e) {
-      console.error("Extraction failed:", e);
+      log.error("Extraction failed", e);
       setErrorMsg("Could not reach the server. Please try again.");
     } finally {
       setIsProcessing(false);
@@ -581,7 +582,7 @@ export default function HomePage() {
         verdict,
         confidence: obj.confidence,
       }),
-    }).catch((e) => console.error("log-verdict request failed:", e));
+    }).catch((e) => log.error("log-verdict request failed", e));
   }
 
   async function handleConfirm() {

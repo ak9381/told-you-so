@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import AppShell from "@/components/AppShell";
 import { Card, PageTitle, Chip } from "@/components/ui";
+import { log } from "@/lib/log";
 
 interface OutboxRow {
   id: string;
@@ -47,7 +48,7 @@ export default function OutboxPage() {
           setLoadError("");
         })
         .catch((e) => {
-          console.error("outbox request failed:", e);
+          log.error("outbox request failed", e);
           setLoadError("Couldn't load reminders. Retrying…");
         })
         .finally(() => setLoading(false));

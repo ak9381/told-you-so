@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import AppShell from "@/components/AppShell";
+import { log } from "@/lib/log";
 import {
   Card,
   PageTitle,
@@ -80,7 +81,7 @@ export default function LedgerPage() {
         setNotionDbUrl(d.notionDbUrl ?? null);
       })
       .catch((e) => {
-        console.error("ledger request failed:", e);
+        log.error("ledger request failed", e);
         setMsg("Couldn't load tasks. Refresh to try again.");
       });
 
@@ -89,7 +90,7 @@ export default function LedgerPage() {
           .then((r) => r.json())
           .then((d) => setPeople(d.people ?? []))
           .catch((e) => {
-            console.error("team load failed:", e);
+            log.error("team load failed", e);
             setMsg("Couldn't load team members. Refresh to try again.");
           })
       : Promise.resolve(null);
@@ -147,7 +148,7 @@ export default function LedgerPage() {
       if (!r.ok) throw new Error(`HTTP ${r.status}`);
       setMsg("Task removed");
     } catch (e) {
-      console.error("delete failed:", e);
+      log.error("delete task failed", e);
       setActions(before);
       setMsg("Couldn't remove the task. Please try again.");
     }

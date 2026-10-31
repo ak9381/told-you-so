@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import { usePathname } from "next/navigation";
 import Link from "next/link";
 import { fetchProjectsClient, invalidateProjectsCache } from "@/lib/client-cache";
+import { log } from "@/lib/log";
 
 interface Project {
   id: string;
@@ -32,11 +33,11 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
     Promise.all([
       fetchProjectsClient()
         .then((d) => setProjects(d.projects ?? []))
-        .catch((e) => console.error("projects request failed:", e)),
+        .catch((e) => log.error("projects request failed", e)),
       fetch("/api/me")
         .then((r) => r.json())
         .then((d) => setEmail(d.email ?? ""))
-        .catch((e) => console.error("me request failed:", e)),
+        .catch((e) => log.error("me request failed", e)),
     ]);
     // Selected project is global: URL ?project= wins (deep links), else the
     // last choice from localStorage. Keep them in sync.
@@ -61,7 +62,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
     try {
       await fetch("/api/auth/logout", { method: "POST" });
     } catch (e) {
-      console.error("logout request failed:", e);
+      log.error("logout request failed", e);
     }
     window.location.href = "/welcome";
   }
