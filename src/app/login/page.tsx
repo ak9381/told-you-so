@@ -47,11 +47,13 @@ function LoginForm() {
     }
   }
 
+  const inputClass =
+    "w-full rounded-xl border border-[#E0DED8] bg-[#FBFAF8] px-3.5 py-2.5 text-sm text-[#1A1715] focus:outline-none focus:border-[#B9B6AE] focus:ring-2 focus:ring-[#ECEAE5]";
+
   return (
-    <div className="w-full max-w-md">
-      {/* Masthead */}
+    <div className="w-full max-w-sm">
       <div className="text-center mb-8">
-        <h1 className="text-5xl font-serif font-black tracking-tight text-[#1C1917] mb-1">
+        <h1 className="text-4xl font-serif font-black tracking-tight text-[#1A1715] mb-1">
           Told You So
         </h1>
         <p className="text-sm font-serif italic text-[#C0392B]">
@@ -59,41 +61,30 @@ function LoginForm() {
         </p>
       </div>
 
-      {/* Not allowed banner */}
       {notAllowed && (
-        <div className="mb-6 border-2 border-[#C0392B] bg-[#FADBD8] p-4 text-center">
-          <p className="font-mono text-sm text-[#962D22] font-semibold uppercase tracking-wide">
-            Access Denied
-          </p>
-          <p className="font-serif text-[#1C1917] mt-1">
-            This demo is limited to 5 invited users.
-          </p>
+        <div className="mb-5 rounded-xl border border-[#F0C9C3] bg-[#FBE9E7] p-4 text-center">
+          <p className="text-sm text-[#C0392B] font-semibold">Access denied</p>
+          <p className="text-sm text-[#6B6560] mt-1">This demo is limited to 5 invited users.</p>
         </div>
       )}
 
-      {/* Login form */}
       <form
         onSubmit={handleLogin}
-        className="border border-[#DDD3C1] bg-[#FAF7F2] p-8 shadow-sm"
+        className="bg-white rounded-2xl border border-[#E7E5E0] card-soft p-7"
       >
-        <div className="border-b border-[#DDD3C1] pb-3 mb-6">
-          <span className="font-mono text-xs uppercase tracking-wider text-[#78716C]">
-            Sign in
-          </span>
-        </div>
+        <p className="text-xs uppercase tracking-wider text-[#9B9690] border-b border-[#EFEEEA] pb-3 mb-5">
+          Sign in
+        </p>
 
         {error && (
-          <div className="mb-4 p-3 border border-[#C0392B] bg-[#FADBD8] font-mono text-sm text-[#962D22]">
+          <div className="mb-4 rounded-lg border border-[#F0C9C3] bg-[#FBE9E7] px-3 py-2 text-sm text-[#C0392B]">
             {error}
           </div>
         )}
 
         <div className="space-y-4">
           <div>
-            <label
-              htmlFor="email"
-              className="block font-mono text-xs uppercase tracking-wider text-[#44403C] mb-1"
-            >
+            <label htmlFor="email" className="block text-xs text-[#6B6560] mb-1.5">
               Email
             </label>
             <input
@@ -102,15 +93,12 @@ function LoginForm() {
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               required
-              className="w-full border border-[#DDD3C1] bg-[#F4EFE6] px-3 py-2 font-mono text-sm text-[#1C1917] focus:outline-none focus:border-[#C0392B] focus:ring-1 focus:ring-[#C0392B]"
+              className={inputClass}
               placeholder="you@example.com"
             />
           </div>
           <div>
-            <label
-              htmlFor="password"
-              className="block font-mono text-xs uppercase tracking-wider text-[#44403C] mb-1"
-            >
+            <label htmlFor="password" className="block text-xs text-[#6B6560] mb-1.5">
               Password
             </label>
             <input
@@ -119,7 +107,7 @@ function LoginForm() {
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               required
-              className="w-full border border-[#DDD3C1] bg-[#F4EFE6] px-3 py-2 font-mono text-sm text-[#1C1917] focus:outline-none focus:border-[#C0392B] focus:ring-1 focus:ring-[#C0392B]"
+              className={inputClass}
               placeholder="••••••••"
             />
           </div>
@@ -128,16 +116,16 @@ function LoginForm() {
         <button
           type="submit"
           disabled={loading}
-          className="mt-6 w-full bg-[#1C1917] text-[#F4EFE6] font-mono text-sm uppercase tracking-wider py-3 hover:bg-[#44403C] disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+          className="mt-6 w-full bg-[#1C1C1E] text-white rounded-xl py-3 text-sm font-medium hover:bg-[#333338] disabled:opacity-50 transition-colors"
         >
           {loading ? "Signing in…" : "Log in"}
         </button>
 
-        <p className="mt-4 text-center font-mono text-xs text-[#78716C]">
+        <p className="mt-4 text-center text-xs text-[#9B9690]">
           No sign-ups. Accounts created by invitation only.
         </p>
-        <p className="mt-2 text-center font-mono text-xs">
-          <a href="/welcome" className="text-[#C0392B] underline hover:text-[#962D22]">
+        <p className="mt-2 text-center text-xs">
+          <a href="/welcome" className="text-[#C0392B] hover:underline">
             What is Told You So? →
           </a>
         </p>
@@ -148,8 +136,8 @@ function LoginForm() {
 
 export default function LoginPage() {
   return (
-    <main className="min-h-screen flex items-center justify-center bg-[#F4EFE6] px-4">
-      <Suspense fallback={<div className="font-mono text-xs text-[#78716C]">Loading...</div>}>
+    <main className="min-h-screen flex items-center justify-center bg-[#F7F6F3] px-4">
+      <Suspense fallback={<div className="text-xs text-[#9B9690]">Loading…</div>}>
         <LoginForm />
       </Suspense>
     </main>
