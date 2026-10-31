@@ -46,7 +46,14 @@ export default function LedgerPage() {
   const [msg, setMsg] = useState("");
 
   const load = useCallback(() => {
-    fetch("/api/ledger")
+    let pid: string | null = null;
+    try {
+      pid =
+        new URLSearchParams(window.location.search).get("project") ||
+        localStorage.getItem("tys_project");
+    } catch {}
+    const url = pid ? `/api/ledger?projectId=${pid}` : "/api/ledger";
+    fetch(url)
       .then((r) => r.json())
       .then((d) => {
         setActions(d.actions ?? []);

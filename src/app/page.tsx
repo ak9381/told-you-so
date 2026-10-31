@@ -394,7 +394,9 @@ export default function HomePage() {
   useEffect(() => {
     let urlProject: string | null = null;
     try {
-      urlProject = new URLSearchParams(window.location.search).get("project");
+      urlProject =
+        new URLSearchParams(window.location.search).get("project") ||
+        localStorage.getItem("tys_project");
     } catch {}
     fetch("/api/projects")
       .then((r) => r.json())

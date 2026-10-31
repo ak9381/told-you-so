@@ -29,11 +29,18 @@ export default function OutboxPage() {
   const [tick, setTick] = useState(0);
 
   useEffect(() => {
-    const load = () =>
-      fetch("/api/outbox")
+    const load = () => {
+      let pid: string | null = null;
+      try {
+        pid =
+          new URLSearchParams(window.location.search).get("project") ||
+          localStorage.getItem("tys_project");
+      } catch {}
+      fetch(pid ? `/api/outbox?projectId=${pid}` : "/api/outbox")
         .then((r) => r.json())
         .then((d) => setRows(d.outbox ?? []))
         .catch(() => {});
+    };
     load();
     const t = setInterval(() => {
       load();

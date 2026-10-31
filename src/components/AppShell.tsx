@@ -38,8 +38,14 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
       .then((r) => r.json())
       .then((d) => setEmail(d.email ?? ""))
       .catch(() => {});
+    // Selected project is global: URL ?project= wins (deep links), else the
+    // last choice from localStorage. Keep them in sync.
     try {
-      setActiveProject(new URLSearchParams(window.location.search).get("project"));
+      const url = new URLSearchParams(window.location.search).get("project");
+      const ls = localStorage.getItem("tys_project");
+      const chosen = url || ls;
+      setActiveProject(chosen);
+      if (url && url !== ls) localStorage.setItem("tys_project", url);
     } catch {}
   }, [pathname]);
 
@@ -56,9 +62,14 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
     window.location.href = "/welcome";
   }
 
-  // Full navigation so the home page re-reads ?project= and actually switches.
+  // Stay on the current tab, but re-scope it to the chosen project. Persist the
+  // choice so every tab (Tasks, Reminders, Home) shows the same project.
   function switchProject(id: string) {
-    window.location.href = `/?project=${id}`;
+    try {
+      localStorage.setItem("tys_project", id);
+    } catch {}
+    const base = pathname || "/";
+    window.location.href = `${base}?project=${id}`;
   }
 
   async function createProject() {
@@ -76,6 +87,9 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
         setCreateMsg(d.error || "Could not create the project");
         return;
       }
+      try {
+        localStorage.setItem("tys_project", d.project.id);
+      } catch {}
       window.location.href = `/?project=${d.project.id}`;
     } catch {
       setCreateMsg("Could not create the project");
@@ -201,10 +215,11 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
           <nav className="max-w-6xl px-6 md:px-10 py-3 flex items-center justify-end gap-1">
             {TOOLS.map((t) => {
               const active = t.href === "/" ? pathname === "/" : pathname === t.href;
+              const href = currentId ? `${t.href}?project=${currentId}` : t.href;
               return (
                 <a
                   key={t.href}
-                  href={t.href}
+                  href={href}
                   className={`rounded-lg px-3 py-1.5 text-sm font-medium transition-colors ${
                     active
                       ? "bg-[#F1F0EC] text-[#1A1715]"

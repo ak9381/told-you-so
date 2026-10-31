@@ -1,14 +1,17 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createServerClient } from "@/lib/supabase";
 
-export async function GET() {
+export async function GET(request: NextRequest) {
   const supabase = createServerClient();
-  const { data: actions } = await supabase
+  const projectId = new URL(request.url).searchParams.get("projectId");
+  let aq = supabase
     .from("actions")
     .select(
-      "id, title, owner, due_date, status, source_quote, reminder_lead_min, notion_page_id, meeting:meetings(title)"
+      "id, title, owner, due_date, status, source_quote, reminder_lead_min, notion_page_id, project_id, meeting:meetings(title)"
     )
     .order("created_at", { ascending: false });
+  if (projectId) aq = aq.eq("project_id", projectId);
+  const { data: actions } = await aq;
   const { data: notionLog } = await supabase
     .from("notion_log")
     .select("id, status, error, notion_page_id, action_id, created_at")

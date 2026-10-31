@@ -66,3 +66,37 @@ async function createNotionTask(task: TaskInput): Promise<TrackerResult> {
 export async function createTask(task: TaskInput): Promise<TrackerResult> {
   return createNotionTask(task);
 }
+
+// Our statuses (open/done/blocked) -> the Notion "Status" select option names.
+const STATUS_TO_NOTION: Record<string, string> = {
+  open: "open",
+  done: "Done",
+  blocked: "Blocked",
+};
+
+/** Push a status change to an existing Notion page (real-time sync from the ledger). */
+export async function updateNotionTaskStatus(
+  pageId: string,
+  status: string
+): Promise<TrackerResult> {
+  const token = process.env.NOTION_TOKEN;
+  if (!token) return { ok: false, error: "Notion not configured" };
+  try {
+    const res = await fetch(`https://api.notion.com/v1/pages/${pageId}`, {
+      method: "PATCH",
+      headers: {
+        Authorization: `Bearer ${token}`,
+        "Notion-Version": NOTION_VERSION,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        properties: { Status: { select: { name: STATUS_TO_NOTION[status] || status } } },
+      }),
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) return { ok: false, error: data?.message || `HTTP ${res.status}` };
+    return { ok: true, id: data.id, url: data.url };
+  } catch (e) {
+    return { ok: false, error: (e as Error).message };
+  }
+}
