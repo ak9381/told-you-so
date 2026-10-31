@@ -9,6 +9,8 @@ export interface TaskInput {
   sourceQuote?: string;
   project?: string;
   decisionId?: string;
+  meeting?: string;
+  objectionLink?: string;
 }
 
 export interface TrackerResult {
@@ -37,6 +39,8 @@ async function createNotionTask(task: TaskInput): Promise<TrackerResult> {
     properties["Source quote"] = { rich_text: [{ text: { content: task.sourceQuote.slice(0, 1800) } }] };
   if (task.project) properties["Project"] = { rich_text: [{ text: { content: task.project } }] };
   if (task.decisionId) properties["Decision ID"] = { rich_text: [{ text: { content: task.decisionId } }] };
+  if (task.meeting) properties["Meeting"] = { rich_text: [{ text: { content: task.meeting.slice(0, 200) } }] };
+  if (task.objectionLink) properties["Objection link"] = { url: task.objectionLink };
   if (task.due) properties["Due"] = { date: { start: task.due } };
 
   try {

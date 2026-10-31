@@ -125,6 +125,12 @@ export default function HomePage() {
   const [timeline, setTimeline] = useState<TimelineDecision[]>([]);
   const [view, setView] = useState<"Day" | "Week" | "Month" | "Year">("Week");
   const [meetingLink, setMeetingLink] = useState("");
+  const [meetingName, setMeetingName] = useState("");
+  const [uploadType, setUploadType] = useState<"notes" | "transcript" | "whatsapp" | "slack">(
+    "notes"
+  );
+  const [micOn, setMicOn] = useState(false);
+  const dictationRef = useRef<unknown>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Live Meeting state (folded in from /live).
@@ -149,10 +155,16 @@ export default function HomePage() {
   function handleFileUpload(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     if (!file) return;
+    const base = file.name.replace(/\.[^.]+$/, "");
+    const lower = file.name.toLowerCase();
     const reader = new FileReader();
     reader.onload = () => {
       setActiveTab("paste");
       setRawInput(String(reader.result || ""));
+      setMeetingName((n) => n || base);
+      if (lower.includes("whatsapp")) setUploadType("whatsapp");
+      else if (lower.includes("slack")) setUploadType("slack");
+      else if (lower.includes("transcript")) setUploadType("transcript");
     };
     reader.readAsText(file);
   }
@@ -330,6 +342,54 @@ export default function HomePage() {
 
   const liveObjectionCount = liveCards.filter((c) => c.verdict === "contradicts").length;
 
+  // In-app dictation (Chrome Web Speech) — free, needs no Wispr. Appends to the box.
+  function startDictation() {
+    const W = window as unknown as {
+      webkitSpeechRecognition?: new () => unknown;
+      SpeechRecognition?: new () => unknown;
+    };
+    const Rec = W.SpeechRecognition || W.webkitSpeechRecognition;
+    if (!Rec) {
+      setErrorMsg("Voice input isn't supported in this browser — just type, or use Wispr Flow.");
+      return;
+    }
+    const rec = new Rec() as {
+      continuous: boolean;
+      interimResults: boolean;
+      lang: string;
+      onresult: (e: unknown) => void;
+      onend: () => void;
+      onerror: () => void;
+      start: () => void;
+      stop: () => void;
+    };
+    rec.continuous = true;
+    rec.interimResults = false;
+    rec.lang = "en-IN";
+    rec.onresult = (e: unknown) => {
+      const ev = e as {
+        resultIndex: number;
+        results: ArrayLike<{ 0: { transcript: string }; isFinal: boolean }>;
+      };
+      let finalText = "";
+      for (let i = ev.resultIndex; i < ev.results.length; i++) {
+        if (ev.results[i].isFinal) finalText += ev.results[i][0].transcript;
+      }
+      if (finalText.trim()) setRawInput((prev) => (prev ? prev + " " : "") + finalText.trim());
+    };
+    rec.onend = () => setMicOn(false);
+    rec.onerror = () => setMicOn(false);
+    rec.start();
+    dictationRef.current = rec;
+    setActiveTab("debrief");
+    setMicOn(true);
+  }
+  function stopDictation() {
+    const rec = dictationRef.current as { stop?: () => void } | null;
+    if (rec?.stop) rec.stop();
+    setMicOn(false);
+  }
+
   // Load real projects; honour a ?project=<id> coming from the sidebar.
   useEffect(() => {
     let urlProject: string | null = null;
@@ -370,6 +430,8 @@ export default function HomePage() {
   });
   const currentProjectName = projects.find((p) => p.id === selectedProjectId)?.name || "Meeting";
   const autoMeetingTitle = `${currentProjectName} #2 · ${formattedTime} IST`;
+  const meetingTitleToUse = meetingName.trim() || autoMeetingTitle;
+  const sourceLabel = activeTab === "debrief" ? "voice" : uploadType;
 
   async function handleExtract(textArg?: string) {
     const input = typeof textArg === "string" ? textArg : rawInput;
@@ -469,8 +531,8 @@ export default function HomePage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           projectId: selectedProjectId,
-          meetingTitle: autoMeetingTitle,
-          sourceType: activeTab,
+          meetingTitle: meetingTitleToUse,
+          sourceType: sourceLabel,
           rawText: rawInput,
           decisions: selectedDecisions,
           actions: selectedActions,
@@ -500,7 +562,7 @@ export default function HomePage() {
             <h1 className="font-serif text-4xl md:text-5xl font-semibold tracking-tight text-[#1A1715]">
               {currentProjectName}
             </h1>
-            <p className="text-[#9B9690] text-sm mt-1">{autoMeetingTitle}</p>
+            <p className="text-[#9B9690] text-sm mt-1">{meetingTitleToUse}</p>
           </div>
           <div className="flex items-center gap-3">
             <div className="hidden sm:inline-flex items-center rounded-full bg-[#F3F3F1] px-1 py-1 text-sm">
@@ -528,57 +590,86 @@ export default function HomePage() {
       {/* Four ways to put info in — Bento */}
       <SectionTitle>Four ways to put info in</SectionTitle>
       <div className="grid grid-cols-1 md:grid-cols-2 gap-5 mb-8">
-        {/* Dictate with Wispr */}
+        {/* Dictate */}
         <Card className="p-6" hover>
           <div className="flex items-center justify-between mb-4">
             <div className="flex items-center gap-3">
               <span className="text-xl">🎙️</span>
-              <h3 className="font-serif text-2xl text-[#1A1715]">Dictate with Wispr</h3>
+              <h3 className="font-serif text-2xl text-[#1A1715]">Dictate</h3>
+              <span className="hidden sm:inline-flex items-center rounded-full bg-[#F1F0EC] px-2.5 py-0.5 text-[11px] font-medium text-[#6B6560]">
+                works with Wispr Flow
+              </span>
             </div>
             <span
-              title="Just talk — hold your Wispr Flow dictation key and the words land in this box (or simply type). Nothing to install in this app, and no Wispr login or API key needed. Our cleanup is tuned for the messy, self-correcting way Wispr transcribes real speech."
+              title="Click Use mic and talk — it uses Chrome's built-in speech-to-text (free, nothing to install, no Wispr needed). You can also just type, or dictate with Wispr Flow if you have it. We clean up the messy, self-correcting way people really talk."
               className="cursor-help w-5 h-5 rounded-full border border-[#D8D6D0] text-[#9B9690] text-[11px] font-serif flex items-center justify-center hover:border-[#B9B6AE] hover:text-[#6B6560]"
             >
               i
             </span>
           </div>
+          <div className="flex items-center gap-2 mb-3">
+            <input
+              value={meetingName}
+              onChange={(e) => setMeetingName(e.target.value)}
+              placeholder="Name this meeting (optional)"
+              className="flex-1 min-w-0 rounded-lg border border-[#E7E5E0] bg-white/60 px-3 py-2 text-sm text-[#1A1715] placeholder:text-[#9B9690] focus:outline-none focus:border-[#B9B6AE]"
+            />
+            <span className="shrink-0 text-xs text-[#9B9690]">→ {currentProjectName}</span>
+          </div>
           <textarea
             rows={4}
             value={rawInput}
             onChange={(e) => setRawInput(e.target.value)}
-            placeholder="Hold Fn and just talk — Wispr Flow types it. e.g. Um, so Harsh, no wait, I take the video by Tuesday…"
+            placeholder="Click Use mic and talk, or type. e.g. Um, so Harsh, no wait, I take the video by Tuesday…"
             className="w-full rounded-xl border border-[#E7E5E0] bg-white/60 p-3.5 text-sm text-[#1A1715] focus:outline-none focus:border-[#B9B6AE] focus:ring-2 focus:ring-[#EDEDEB]"
           />
           <div className="mt-3 flex flex-wrap items-center justify-between gap-2">
-            <div className="flex gap-3 text-xs text-[#9B9690]">
-              <button
-                type="button"
-                onClick={() => {
-                  setActiveTab("debrief");
-                  setRawInput(
-                    "Um, like, quick update. Harsh, no wait, I take the video, by Tuesday. The coffee machine broke again anyway."
-                  );
-                }}
-                className="underline hover:text-[#1A1715]"
-              >
-                Sample debrief
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  setActiveTab("paste");
-                  setRawInput(
-                    `[31/10/26, 2:05:12 PM] Rohan: Bro I'm in for the hackathon, adding Neha too, we can be 3 na?\n[31/10/26, 2:06:01 PM] Neha: Yes 3 is fine I think, they never said a limit\n[31/10/26, 2:07:33 PM] Akash: Let's aim to submit by midnight then`
-                  );
-                }}
-                className="underline hover:text-[#1A1715]"
-              >
-                Sample WhatsApp
-              </button>
-            </div>
+            <button
+              onClick={micOn ? stopDictation : startDictation}
+              className={`inline-flex items-center gap-2 rounded-xl px-4 py-2.5 text-sm font-medium transition-colors ${
+                micOn
+                  ? "bg-[#C0392B] text-white hover:bg-[#A5332A]"
+                  : "bg-white text-[#1A1715] border border-[#E0DED8] hover:bg-[#F1F0EC]"
+              }`}
+            >
+              {micOn ? (
+                <>
+                  <span className="w-2 h-2 rounded-full bg-white animate-pulse" /> Listening… stop
+                </>
+              ) : (
+                <>🎤 Use mic</>
+              )}
+            </button>
             <PrimaryButton onClick={() => handleExtract()} disabled={isProcessing || !rawInput.trim()}>
               {isProcessing ? "Analyzing…" : "Process"}
             </PrimaryButton>
+          </div>
+          <div className="mt-2 flex gap-3 text-xs text-[#9B9690]">
+            <button
+              type="button"
+              onClick={() => {
+                setActiveTab("debrief");
+                setRawInput(
+                  "Um, like, quick update. Harsh, no wait, I take the video, by Tuesday. The coffee machine broke again anyway."
+                );
+              }}
+              className="underline hover:text-[#1A1715]"
+            >
+              Sample debrief
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setActiveTab("paste");
+                setUploadType("whatsapp");
+                setRawInput(
+                  `[31/10/26, 2:05:12 PM] Rohan: Bro I'm in for the hackathon, adding Neha too, we can be 3 na?\n[31/10/26, 2:06:01 PM] Neha: Yes 3 is fine I think, they never said a limit\n[31/10/26, 2:07:33 PM] Akash: Let's aim to submit by midnight then`
+                );
+              }}
+              className="underline hover:text-[#1A1715]"
+            >
+              Sample WhatsApp
+            </button>
           </div>
         </Card>
 
@@ -596,7 +687,26 @@ export default function HomePage() {
               i
             </span>
           </div>
-          <p className="text-sm text-[#6B6560] mb-4">Drag &amp; drop notes, transcripts, or chat exports.</p>
+          <p className="text-sm text-[#6B6560] mb-3">Drag &amp; drop notes, transcripts, or chat exports.</p>
+          <div className="flex items-center gap-2 mb-3">
+            <input
+              value={meetingName}
+              onChange={(e) => setMeetingName(e.target.value)}
+              placeholder="Name this source (optional)"
+              className="flex-1 min-w-0 rounded-lg border border-[#E7E5E0] bg-white/60 px-3 py-2 text-sm text-[#1A1715] placeholder:text-[#9B9690] focus:outline-none focus:border-[#B9B6AE]"
+            />
+            <select
+              value={uploadType}
+              onChange={(e) => setUploadType(e.target.value as typeof uploadType)}
+              className="shrink-0 rounded-lg border border-[#E7E5E0] bg-white/60 px-2.5 py-2 text-sm text-[#6B6560] focus:outline-none focus:border-[#B9B6AE]"
+              title="What is this? Helps us ingest it correctly."
+            >
+              <option value="notes">Meeting notes</option>
+              <option value="transcript">Transcript</option>
+              <option value="whatsapp">WhatsApp export</option>
+              <option value="slack">Slack export</option>
+            </select>
+          </div>
           <input
             ref={fileInputRef}
             type="file"
@@ -610,9 +720,14 @@ export default function HomePage() {
           >
             Drop files here or <span className="underline">browse</span>
           </button>
-          {activeTab === "paste" && rawInput && (
-            <p className="mt-2 text-xs text-[#1C7A4A]">Loaded — review in the Dictate box, then Process.</p>
-          )}
+          <div className="mt-2 flex items-center justify-between gap-2">
+            {activeTab === "paste" && rawInput ? (
+              <p className="text-xs text-[#1C7A4A]">Loaded — review in the Dictate box, then Process.</p>
+            ) : (
+              <span />
+            )}
+            <span className="shrink-0 text-xs text-[#9B9690]">→ {currentProjectName}</span>
+          </div>
         </Card>
 
         {/* Connect Calendar */}

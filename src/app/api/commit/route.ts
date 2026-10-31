@@ -174,6 +174,7 @@ export async function POST(request: NextRequest) {
           sourceQuote: act.source_quote,
           project: projectName,
           decisionId: act.id,
+          meeting: meetingTitle,
         });
         if (result.ok) {
           await supabase.from("actions").update({ notion_page_id: result.id }).eq("id", act.id);
