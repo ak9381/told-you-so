@@ -97,8 +97,8 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
   }
 
   return (
-    <div className="flex min-h-screen">
-      <aside className="w-60 shrink-0 glass-shell border-r border-white/60 flex flex-col sticky top-0 h-screen">
+    <div className="flex flex-col md:flex-row min-h-screen">
+      <aside className="w-full md:w-60 shrink-0 glass-shell border-b md:border-b-0 md:border-r border-white/60 flex flex-col md:sticky md:top-0 md:h-screen">
         <Link href="/" className="px-6 pt-7 pb-5 block" aria-label="Told You So home">
           <div className="font-serif text-2xl font-black leading-[1.05] tracking-tight text-[#1A1715]">
             TOLD
@@ -171,6 +171,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
                             if (e.key === "Enter") createProject();
                           }}
                           placeholder="Project name"
+                          aria-label="New project name"
                           className="flex-1 min-w-0 rounded-lg border border-[#E7E5E0] px-2.5 py-1.5 text-sm text-[#1A1715] focus:outline-none focus:border-[#B9B6AE]"
                         />
                         <button
