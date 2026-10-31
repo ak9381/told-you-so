@@ -1,10 +1,8 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
-import { createClient } from "@supabase/supabase-js";
+import { updateSession } from "@/lib/supabase-ssr";
 
-// Routes that don't require auth. /api/auth/* handles sign-in/out itself
-// (it verifies the token and allowlist before setting cookies), so it must be
-// reachable WITHOUT a prior session — otherwise login can never set cookies.
+// /api/auth/* handles sign-in itself; cron routes authenticate with CRON_SECRET.
 const PUBLIC_ROUTES = ["/login", "/api/auth", "/api/reminders", "/api/digest"];
 
 function isPublicRoute(pathname: string): boolean {
@@ -12,15 +10,25 @@ function isPublicRoute(pathname: string): boolean {
     (route) => pathname === route || pathname.startsWith(route + "/")
   );
 }
-
 function isCronRoute(pathname: string): boolean {
   return pathname === "/api/reminders" || pathname === "/api/digest";
+}
+
+function isEmailInAllowlist(email: string): boolean {
+  const list = (process.env.ALLOWED_EMAILS || "")
+    .split(",")
+    .map((e) => e.trim().toLowerCase())
+    .filter(Boolean);
+  if (list.length > 5) {
+    console.error("ALLOWED_EMAILS has more than 5 entries — refusing access");
+    return false;
+  }
+  return list.includes(email.toLowerCase());
 }
 
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
-  // Allow static files and Next.js internals
   if (
     pathname.startsWith("/_next") ||
     pathname.startsWith("/favicon") ||
@@ -29,125 +37,31 @@ export async function middleware(request: NextRequest) {
     return NextResponse.next();
   }
 
-  // Cron routes: authenticate via CRON_SECRET header.
-  // If CRON_SECRET is not configured, REJECT — never leave these endpoints open.
+  // Cron routes: authenticate via CRON_SECRET; reject when it is unset.
   if (isCronRoute(pathname)) {
     const cronSecret = process.env.CRON_SECRET;
     if (!cronSecret) {
-      return NextResponse.json(
-        { error: "CRON_SECRET not configured" },
-        { status: 503 }
-      );
+      return NextResponse.json({ error: "CRON_SECRET not configured" }, { status: 503 });
     }
     const authHeader = request.headers.get("authorization");
-    if (authHeader === `Bearer ${cronSecret}`) {
-      return NextResponse.next();
-    }
+    if (authHeader === `Bearer ${cronSecret}`) return NextResponse.next();
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  // Public routes don't need auth
-  if (isPublicRoute(pathname)) {
-    return NextResponse.next();
-  }
+  if (isPublicRoute(pathname)) return NextResponse.next();
 
-  // Check for Supabase auth token in cookies
-  const accessToken = request.cookies.get("sb-access-token")?.value;
-  const refreshToken = request.cookies.get("sb-refresh-token")?.value;
-
-  if (!accessToken) {
-    const loginUrl = new URL("/login", request.url);
-    return NextResponse.redirect(loginUrl);
-  }
-
-  // Verify the token with Supabase
-  const supabaseUrl = process.env.SUPABASE_URL;
-  const supabaseAnonKey = process.env.SUPABASE_ANON_KEY;
-
-  if (!supabaseUrl || !supabaseAnonKey) {
+  // Protected routes: refresh the Supabase session on every request (fixes the
+  // 1-hour logout), then enforce the allowlist.
+  const { response, user } = await updateSession(request);
+  if (!user?.email) {
     return NextResponse.redirect(new URL("/login", request.url));
   }
-
-  const supabase = createClient(supabaseUrl, supabaseAnonKey, {
-    auth: { persistSession: false, autoRefreshToken: false },
-  });
-
-  const {
-    data: { user },
-    error,
-  } = await supabase.auth.getUser(accessToken);
-
-  if (error || !user?.email) {
-    // Try refresh
-    if (refreshToken) {
-      const { data: refreshData } = await supabase.auth.refreshSession({
-        refresh_token: refreshToken,
-      });
-      if (refreshData.session && refreshData.user?.email) {
-        // Check allowlist
-        const allowed = isEmailInAllowlist(refreshData.user.email);
-        if (!allowed) {
-          return NextResponse.redirect(
-            new URL("/login?error=not_allowed", request.url)
-          );
-        }
-        // Set refreshed cookies
-        const response = NextResponse.next();
-        response.cookies.set("sb-access-token", refreshData.session.access_token, {
-          httpOnly: true,
-          secure: true,
-          sameSite: "lax",
-          path: "/",
-          maxAge: 60 * 60, // 1 hour
-        });
-        response.cookies.set("sb-refresh-token", refreshData.session.refresh_token, {
-          httpOnly: true,
-          secure: true,
-          sameSite: "lax",
-          path: "/",
-          maxAge: 60 * 60 * 24 * 7, // 7 days
-        });
-        return response;
-      }
-    }
-    return NextResponse.redirect(new URL("/login", request.url));
+  if (!isEmailInAllowlist(user.email)) {
+    return NextResponse.redirect(new URL("/login?error=not_allowed", request.url));
   }
-
-  // Check allowlist
-  const allowed = isEmailInAllowlist(user.email);
-  if (!allowed) {
-    return NextResponse.redirect(
-      new URL("/login?error=not_allowed", request.url)
-    );
-  }
-
-  return NextResponse.next();
-}
-
-function isEmailInAllowlist(email: string): boolean {
-  const raw = process.env.ALLOWED_EMAILS || "";
-  const list = raw
-    .split(",")
-    .map((e) => e.trim().toLowerCase())
-    .filter(Boolean);
-
-  if (list.length > 5) {
-    console.error("ALLOWED_EMAILS has more than 5 entries — refusing access");
-    return false;
-  }
-
-  return list.includes(email.toLowerCase());
+  return response;
 }
 
 export const config = {
-  matcher: [
-    /*
-     * Match all paths except:
-     * - _next/static (static files)
-     * - _next/image (image optimization files)
-     * - favicon.ico, sitemap.xml, robots.txt (metadata files)
-     */
-    "/((?!_next/static|_next/image|favicon.ico|sitemap.xml|robots.txt).*)",
-  ],
+  matcher: ["/((?!_next/static|_next/image|favicon.ico|sitemap.xml|robots.txt).*)"],
 };
-

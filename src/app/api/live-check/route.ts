@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createClient } from "@supabase/supabase-js";
+import { getRequestUser } from "@/lib/supabase-ssr";
 import { getProjectMemory } from "@/lib/agent";
 import { checkAndIncrementUsage } from "@/lib/usage";
 
@@ -8,16 +8,6 @@ const GEMINI_MODEL = "gemini-3.5-flash-lite";
 // Cheap gate: only call Gemini when a chunk actually looks decision-like.
 const DECISION_GATE =
   /\b(deadline|due|team|submit|submission|video|deploy|launch|must|let'?s|decide|decided|budget|price|pricing|scope|member|people|minute|min|hour|tonight|tomorrow|monday|tuesday|wednesday|thursday|friday|by\s+\d|\d+\s*(pm|am|min|minutes|members|people)|postgres|mongo|database|\bdb\b|polling|webhook|auth|clerk|jwt|switch|instead|go with|why are we)/i;
-
-async function resolveUserId(request: NextRequest): Promise<string | null> {
-  const token = request.cookies.get("sb-access-token")?.value;
-  const url = process.env.SUPABASE_URL;
-  const key = process.env.SUPABASE_ANON_KEY;
-  if (!token || !url || !key) return null;
-  const sb = createClient(url, key, { auth: { persistSession: false } });
-  const { data } = await sb.auth.getUser(token);
-  return data.user?.id ?? null;
-}
 
 export interface LiveResult {
   quote: string;
@@ -45,7 +35,7 @@ export async function POST(request: NextRequest) {
     //    clip is exempt — its lines fire faster than 15s on purpose.
     if (!demo) {
       const userId =
-        (await resolveUserId(request)) ?? "00000000-0000-0000-0000-000000000000";
+        (await getRequestUser(request))?.id ?? "00000000-0000-0000-0000-000000000000";
       const usage = await checkAndIncrementUsage(userId, true);
       if (!usage.allowed) {
         return NextResponse.json({ skipped: true, reason: usage.reason, results: [] });

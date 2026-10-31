@@ -2,19 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { parseMeetingInput, InputSourceType } from "@/lib/parser";
 import { extractMeetingItems, ExtractionError } from "@/lib/extractor";
 import { runAgent, type AgentResult } from "@/lib/agent";
-import { createClient } from "@supabase/supabase-js";
-
-// Resolve the signed-in user's real UUID from the auth cookie so the Gemini
-// usage cap tracks per actual user (middleware has already gated this route).
-async function resolveUserId(request: NextRequest): Promise<string | null> {
-  const token = request.cookies.get("sb-access-token")?.value;
-  const url = process.env.SUPABASE_URL;
-  const key = process.env.SUPABASE_ANON_KEY;
-  if (!token || !url || !key) return null;
-  const sb = createClient(url, key, { auth: { persistSession: false } });
-  const { data } = await sb.auth.getUser(token);
-  return data.user?.id ?? null;
-}
+import { getRequestUser } from "@/lib/supabase-ssr";
 
 export async function POST(request: NextRequest) {
   try {
@@ -25,8 +13,8 @@ export async function POST(request: NextRequest) {
     }
 
     const currentUserName = userName || "Akash";
-    const userId =
-      (await resolveUserId(request)) ?? "00000000-0000-0000-0000-000000000000";
+    const user = await getRequestUser(request);
+    const userId = user?.id ?? "00000000-0000-0000-0000-000000000000";
     const { utterances, detectedType } = parseMeetingInput(
       rawText,
       sourceType as InputSourceType,

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, Suspense } from "react";
-import { createClient } from "@supabase/supabase-js";
+import { createBrowserSupabase } from "@/lib/supabase-ssr";
 import { useSearchParams, useRouter } from "next/navigation";
 
 function LoginForm() {
@@ -20,44 +20,25 @@ function LoginForm() {
     setError(null);
 
     try {
-      const supabase = createClient(
-        process.env.NEXT_PUBLIC_SUPABASE_URL!,
-        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-      );
-
-      const { data, error: authError } = await supabase.auth.signInWithPassword(
-        { email, password }
-      );
+      const supabase = createBrowserSupabase();
+      const { data, error: authError } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      });
 
       if (authError) {
         setError(authError.message);
         setLoading(false);
         return;
       }
-
       if (!data.session) {
         setError("Login failed. Please try again.");
         setLoading(false);
         return;
       }
 
-      // Set auth cookies via our API route
-      const res = await fetch("/api/auth/callback", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          access_token: data.session.access_token,
-          refresh_token: data.session.refresh_token,
-        }),
-      });
-
-      if (!res.ok) {
-        const body = await res.json();
-        setError(body.error === "not_allowed" ? "This demo is limited to 5 invited users." : (body.error || "Login failed"));
-        setLoading(false);
-        return;
-      }
-
+      // The SSR client sets the auth cookies; the middleware refreshes the
+      // session on every request and enforces the 5-user allowlist.
       router.push("/");
       router.refresh();
     } catch {
