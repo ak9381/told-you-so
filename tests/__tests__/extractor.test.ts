@@ -1,3 +1,4 @@
+import { test } from "vitest";
 import { extractWithFallback } from "../../src/lib/extractor";
 
 console.log("=== Testing Extraction Fallback ===");
@@ -20,3 +21,5 @@ if (result.actions[0].owner !== "Akash") throw new Error(`Expected owner to be A
 if (!result.actions[0].due_date.toLowerCase().includes("tuesday")) throw new Error("Expected due date to be Tuesday");
 
 console.log("✅ Extraction fallback test passed!");
+
+test("extractor script assertions passed at import", () => {});

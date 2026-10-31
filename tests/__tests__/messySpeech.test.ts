@@ -1,3 +1,4 @@
+import { test } from "vitest";
 import { formatSpokenTokens } from "../../src/lib/messySpeech";
 
 const raw = "Um, like, Harsh, no wait, I take the video, by Tuesday. Anyway.";
@@ -17,3 +18,5 @@ const umToken = tokens.find((t) => t.text.toLowerCase().includes("um"));
 if (!umToken?.isFiller) throw new Error("Expected 'Um' to be marked as filler");
 
 console.log("✅ Messy speech visual formatting test passed!");
+
+test("messySpeech script assertions passed at import", () => {});

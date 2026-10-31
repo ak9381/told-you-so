@@ -1,3 +1,4 @@
+import { test } from "vitest";
 import { isEmailAllowed } from "../../src/lib/allowlist";
 
 function testAllowlist() {
@@ -20,5 +21,5 @@ function testAllowlist() {
   console.log("✅ All allowlist checks passed!");
 }
 
-testAllowlist();
+test("allowlist", testAllowlist);
 

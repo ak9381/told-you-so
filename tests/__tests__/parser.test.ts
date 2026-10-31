@@ -1,3 +1,4 @@
+import { test } from "vitest";
 import { parseMeetingInput } from "../../src/lib/parser";
 
 const KICKOFF_SAMPLE = `[00:15] Speaker 1: Welcome everyone to the Product Space Agentic AI Hackathon kickoff.
@@ -48,3 +49,5 @@ slackRes.utterances.forEach((u) => console.log(`   ${u.speaker}: "${u.content}"`
 if (slackRes.utterances.length !== 2) throw new Error("Expected 2 utterances in Slack sample");
 
 console.log("\n✅ All parser tests passed successfully!");
+
+test("parser script assertions passed at import", () => {});

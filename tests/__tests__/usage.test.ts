@@ -1,3 +1,4 @@
+import { test } from "vitest";
 /**
  * Usage limiter unit test.
  * Simulates 61 calls for one user and confirms the 61st is refused.
@@ -109,7 +110,7 @@ async function runTest() {
     if (i <= 60) {
       if (!lastResult.allowed) {
         console.error(`❌ FAIL: Call ${i} was refused (should be allowed)`);
-        process.exit(1);
+        throw new Error("usage test failed");
       }
     }
     if (i % 10 === 0) {
@@ -121,12 +122,12 @@ async function runTest() {
 
   if (lastResult.allowed) {
     console.error("❌ FAIL: Call 61 should have been refused but was allowed");
-    process.exit(1);
+    throw new Error("usage test failed");
   }
 
   if (lastResult.reason !== "daily_limit") {
     console.error(`❌ FAIL: Expected reason "daily_limit", got "${lastResult.reason}"`);
-    process.exit(1);
+    throw new Error("usage test failed");
   }
 
   console.log("\n✅ PASS: Call 61 correctly refused with daily_limit\n");
@@ -138,26 +139,23 @@ async function runTest() {
   console.log(`  First live check: allowed=${res1.allowed}`);
   if (!res1.allowed) {
     console.error("❌ FAIL: First live check should be allowed");
-    process.exit(1);
+    throw new Error("usage test failed");
   }
 
   const res2 = await checkAndIncrementUsage(userId, true);
   console.log(`  Immediate second live check: allowed=${res2.allowed}, reason=${res2.reason}`);
   if (res2.allowed) {
     console.error("❌ FAIL: Immediate second live check should be refused");
-    process.exit(1);
+    throw new Error("usage test failed");
   }
   if (res2.reason !== "live_check_cooldown") {
     console.error(`❌ FAIL: Expected reason "live_check_cooldown", got "${res2.reason}"`);
-    process.exit(1);
+    throw new Error("usage test failed");
   }
 
   console.log("\n✅ PASS: Live check cooldown works correctly\n");
   console.log("🎉 All usage tests passed!");
 }
 
-runTest().catch((err) => {
-  console.error("Test error:", err);
-  process.exit(1);
-});
+test("usage limiter (inline model)", runTest);
 
