@@ -3,13 +3,22 @@ import { runReminders } from "@/lib/reminders";
 import { runDigests, buildDigest, renderDigestHtml } from "@/lib/digest";
 import { createServerClient } from "@/lib/supabase";
 import { sendEmail } from "@/lib/email";
+import { requireUser, readJson, canAccessAction, isUuid, jsonError } from "@/lib/api-guard";
 
 // Authenticated UI endpoint for the "Send now" / "Remind now" buttons.
 export async function POST(request: NextRequest) {
-  const { kind, actionId, person } = await request.json();
+  const auth = await requireUser(request);
+  if (auth.error) return auth.error;
+  const parsed = await readJson(request, 10_000);
+  if (parsed.error) return parsed.error;
+  const { kind, actionId, person } = parsed.body as Record<string, unknown>;
 
+  try {
   if (kind === "reminder") {
-    const r = await runReminders({ force: true, actionId });
+    if (actionId != null && (!isUuid(actionId) || !(await canAccessAction(createServerClient(), actionId, auth.user.id)))) {
+      return jsonError("Task not found.", 404);
+    }
+    const r = await runReminders({ force: true, actionId: isUuid(actionId) ? actionId : undefined });
     return NextResponse.json({ ok: true, ...r });
   }
 
@@ -18,7 +27,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ ok: true, ...r });
   }
 
-  if (kind === "digest-one" && person) {
+  if (kind === "digest-one" && typeof person === "string" && person.trim()) {
     const supabase = createServerClient();
     const digest = await buildDigest(supabase, person);
     const html = renderDigestHtml(digest);
@@ -43,6 +52,11 @@ export async function POST(request: NextRequest) {
       await supabase.from("outbox").update({ status: "FAILED", error: send.error }).eq("id", ob?.id);
     }
     return NextResponse.json({ ok: send.ok, error: send.error });
+  }
+
+  } catch (e) {
+    console.error("send-now error:", e);
+    return jsonError("Could not send right now. Please try again in a minute.", 500);
   }
 
   return NextResponse.json({ error: "unknown kind" }, { status: 400 });

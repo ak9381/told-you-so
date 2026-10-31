@@ -1,9 +1,14 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createServerClient } from "@/lib/supabase";
+import { requireUser, readJson, jsonError } from "@/lib/api-guard";
+
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 // Team members (reused across projects). Used to assign task owners and route
 // reminder emails.
-export async function GET() {
+export async function GET(request: NextRequest) {
+  const auth = await requireUser(request);
+  if (auth.error) return auth.error;
   const supabase = createServerClient();
   const { data } = await supabase
     .from("people")
@@ -13,8 +18,12 @@ export async function GET() {
 }
 
 export async function POST(request: NextRequest) {
-  const { name, email } = await request.json();
-  const clean = (name || "").toString().trim();
+  const auth = await requireUser(request);
+  if (auth.error) return auth.error;
+  const parsed = await readJson(request, 10_000);
+  if (parsed.error) return parsed.error;
+  const { name, email } = parsed.body as Record<string, unknown>;
+  const clean = (typeof name === "string" ? name : "").trim().slice(0, 80);
   if (!clean) return NextResponse.json({ error: "A name is required" }, { status: 400 });
   const supabase = createServerClient();
 
@@ -24,15 +33,17 @@ export async function POST(request: NextRequest) {
     .select("id")
     .eq("name", clean)
     .maybeSingle();
-  const cleanEmail = (email || "").toString().trim() || null;
+  const cleanEmail = (typeof email === "string" ? email : "").trim().slice(0, 254) || null;
+  if (cleanEmail && !EMAIL_RE.test(cleanEmail)) return jsonError("That email address doesn't look right.", 400);
 
   if (existing) {
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from("people")
       .update({ email: cleanEmail })
       .eq("id", existing.id)
       .select("id, name, email")
       .single();
+    if (error) return jsonError("Could not update this person.", 500);
     return NextResponse.json({ person: data });
   }
 
@@ -41,6 +52,9 @@ export async function POST(request: NextRequest) {
     .insert({ name: clean.slice(0, 80), email: cleanEmail })
     .select("id, name, email")
     .single();
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  if (error) {
+    console.error("people insert failed:", error.message);
+    return jsonError("Could not add this person.", 500);
+  }
   return NextResponse.json({ person: data });
 }

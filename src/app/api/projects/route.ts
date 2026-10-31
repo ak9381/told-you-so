@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createServerClient } from "@/lib/supabase";
-import { getRequestUser } from "@/lib/supabase-ssr";
 import { flags } from "@/lib/flags";
+import { requireUser, readJson } from "@/lib/api-guard";
 
 // Returns the projects that belong to the logged-in user (with real UUIDs) so the
 // UI can scope meetings correctly. Scoped per-user so the dropdown only shows
@@ -9,11 +9,16 @@ import { flags } from "@/lib/flags";
 // the sidebar).
 export async function GET(request: NextRequest) {
   try {
+    const auth = await requireUser(request);
+    if (auth.error) return auth.error;
     const supabase = createServerClient();
-    const userId = (await getRequestUser(request))?.id ?? null;
+    const userId = auth.user.id;
 
-    let query = supabase.from("projects").select("id, name").order("created_at", { ascending: true });
-    if (userId) query = query.eq("user_id", userId);
+    const query = supabase
+      .from("projects")
+      .select("id, name")
+      .eq("user_id", userId)
+      .order("created_at", { ascending: true });
 
     const { data, error } = await query;
     if (error) throw error;
@@ -32,13 +37,16 @@ export async function GET(request: NextRequest) {
 // Create a new project owned by the logged-in user.
 export async function POST(request: NextRequest) {
   try {
-    const { name } = await request.json();
-    const clean = (name || "").toString().trim();
+    const auth = await requireUser(request);
+    if (auth.error) return auth.error;
+    const parsed = await readJson(request, 10_000);
+    if (parsed.error) return parsed.error;
+    const name = parsed.body.name;
+    const clean = (typeof name === "string" ? name : "").trim();
     if (!clean) return NextResponse.json({ error: "A project name is required" }, { status: 400 });
 
     const supabase = createServerClient();
-    const userId = (await getRequestUser(request))?.id ?? null;
-    if (!userId) return NextResponse.json({ error: "Not signed in" }, { status: 401 });
+    const userId = auth.user.id;
 
     const { data, error } = await supabase
       .from("projects")
