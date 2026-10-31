@@ -47,7 +47,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
     try {
       await fetch("/api/auth/logout", { method: "POST" });
     } catch {}
-    window.location.href = "/login";
+    window.location.href = "/welcome";
   }
 
   return (
