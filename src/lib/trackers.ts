@@ -1,0 +1,64 @@
+// Tracker adapter: createTask(task) -> { url, id }. Notion is the only tracker
+// for now; GitHub Issues could slot in behind the same interface later.
+
+export interface TaskInput {
+  title: string;
+  owner: string;
+  due?: string | null; // ISO date string or null
+  status?: string;
+  sourceQuote?: string;
+  project?: string;
+  decisionId?: string;
+}
+
+export interface TrackerResult {
+  ok: boolean;
+  url?: string;
+  id?: string;
+  error?: string;
+}
+
+const NOTION_VERSION = "2022-06-28";
+
+// Matches the real "Told You So Tasks" database:
+// Name (title), Owner (rich_text), Due (date), Status (select),
+// Source quote (rich_text), Project (rich_text), Decision ID (rich_text).
+async function createNotionTask(task: TaskInput): Promise<TrackerResult> {
+  const token = process.env.NOTION_TOKEN;
+  const dbId = process.env.NOTION_DATABASE_ID;
+  if (!token || !dbId) return { ok: false, error: "Notion not configured" };
+
+  const properties: Record<string, unknown> = {
+    Name: { title: [{ text: { content: (task.title || "Task").slice(0, 200) } }] },
+    Owner: { rich_text: [{ text: { content: task.owner || "" } }] },
+    Status: { select: { name: task.status || "open" } },
+  };
+  if (task.sourceQuote)
+    properties["Source quote"] = { rich_text: [{ text: { content: task.sourceQuote.slice(0, 1800) } }] };
+  if (task.project) properties["Project"] = { rich_text: [{ text: { content: task.project } }] };
+  if (task.decisionId) properties["Decision ID"] = { rich_text: [{ text: { content: task.decisionId } }] };
+  if (task.due) properties["Due"] = { date: { start: task.due } };
+
+  try {
+    const res = await fetch("https://api.notion.com/v1/pages", {
+      method: "POST",
+      // bind fetch to globalThis avoids Workers' "Illegal invocation"
+      headers: {
+        Authorization: `Bearer ${token}`,
+        "Notion-Version": NOTION_VERSION,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ parent: { database_id: dbId }, properties }),
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) return { ok: false, error: data?.message || `HTTP ${res.status}` };
+    return { ok: true, id: data.id, url: data.url };
+  } catch (e) {
+    return { ok: false, error: (e as Error).message };
+  }
+}
+
+/** The adapter entry point. Chooses the tracker (Notion for now). */
+export async function createTask(task: TaskInput): Promise<TrackerResult> {
+  return createNotionTask(task);
+}

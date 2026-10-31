@@ -2,8 +2,10 @@ import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 
-// Routes that don't require auth
-const PUBLIC_ROUTES = ["/login", "/api/reminders", "/api/digest"];
+// Routes that don't require auth. /api/auth/* handles sign-in/out itself
+// (it verifies the token and allowlist before setting cookies), so it must be
+// reachable WITHOUT a prior session — otherwise login can never set cookies.
+const PUBLIC_ROUTES = ["/login", "/api/auth", "/api/reminders", "/api/digest"];
 
 function isPublicRoute(pathname: string): boolean {
   return PUBLIC_ROUTES.some(

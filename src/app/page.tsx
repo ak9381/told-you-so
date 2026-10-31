@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import Masthead from "@/components/Masthead";
+import Nav from "@/components/Nav";
 import { formatSpokenTokens, TokenPart } from "@/lib/messySpeech";
 import { ExtractionResult, ExtractedDecision, ExtractedAction } from "@/lib/extractor";
 import type { Objection, TraceStep, Refinement } from "@/lib/agent";
@@ -228,6 +229,7 @@ export default function HomePage() {
   return (
     <main className="max-w-5xl mx-auto px-6 py-8 min-h-screen">
       <Masthead />
+      <Nav />
 
       {/* Project Selector & Auto Title Header */}
       <section className="border border-[#DDD3C1] bg-[#FAF7F2] p-6 mb-8">

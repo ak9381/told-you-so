@@ -3,6 +3,7 @@
 import { useState, useRef, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import Masthead from "@/components/Masthead";
+import Nav from "@/components/Nav";
 
 interface ProjectOption {
   id: string;
@@ -241,6 +242,7 @@ export default function LivePage() {
   return (
     <main className="max-w-5xl mx-auto px-6 py-8 min-h-screen">
       <Masthead />
+      <Nav />
 
       {/* Controls */}
       <section className="border border-[#DDD3C1] bg-[#FAF7F2] p-6 mb-6">

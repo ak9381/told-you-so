@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createServerClient } from "@/lib/supabase";
 import { createClient } from "@supabase/supabase-js";
+import { createTask } from "@/lib/trackers";
+import { resolveDue, isDemoProject } from "@/lib/dates";
 
 // Resolve the signed-in user's real UUID from the auth cookie so new meetings
 // are owned under row-level security (middleware has already gated this route).
@@ -147,19 +149,59 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // 5. Insert Actions
+    // 5. Insert Actions (resolved due dates) + best-effort Notion filing.
+    const { data: proj } = await supabase
+      .from("projects")
+      .select("name")
+      .eq("id", projectId)
+      .maybeSingle();
+    const projectName = proj?.name || "";
+    const demo = isDemoProject(projectName);
+
     if (actions && Array.isArray(actions) && actions.length > 0) {
-      const actionRows = actions.map((a: { title: string; owner: string; due_date: string; source_quote: string; reminder_lead_min: number }) => ({
-        project_id: projectId,
-        meeting_id: meeting.id,
-        title: a.title,
-        owner: a.owner,
-        due_date: a.due_date ? new Date().toISOString() : null, // or resolved timestamp
-        source_quote: a.source_quote,
-        reminder_lead_min: a.reminder_lead_min || 1440,
-        status: "open",
-      }));
-      await supabase.from("actions").insert(actionRows);
+      const actionRows = actions.map(
+        (a: { title: string; owner: string; due_date: string; source_quote: string; reminder_lead_min?: number }) => ({
+          project_id: projectId,
+          meeting_id: meeting.id,
+          title: a.title,
+          owner: a.owner,
+          due_date: resolveDue(a.due_date),
+          source_quote: a.source_quote,
+          reminder_lead_min: a.reminder_lead_min ?? (demo ? 2 : 1440),
+          status: "open",
+        })
+      );
+      const { data: insertedActions } = await supabase
+        .from("actions")
+        .insert(actionRows)
+        .select("id, title, owner, due_date, source_quote");
+
+      // Best-effort: file each action in Notion; never block the ledger.
+      for (const act of insertedActions ?? []) {
+        const result = await createTask({
+          title: act.title,
+          owner: act.owner,
+          due: act.due_date,
+          status: "open",
+          sourceQuote: act.source_quote,
+          project: projectName,
+          decisionId: act.id,
+        });
+        if (result.ok) {
+          await supabase.from("actions").update({ notion_page_id: result.id }).eq("id", act.id);
+          await supabase.from("notion_log").insert({
+            action_id: act.id,
+            notion_page_id: result.id,
+            status: "filed",
+          });
+        } else {
+          await supabase.from("notion_log").insert({
+            action_id: act.id,
+            status: "failed",
+            error: result.error,
+          });
+        }
+      }
     }
 
     return NextResponse.json({

@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import Masthead from "@/components/Masthead";
+import Nav from "@/components/Nav";
 import { EVAL_CASES, runFullEvaluation, EvalResult } from "@/lib/eval";
 
 export default function EvalPage() {
@@ -20,6 +21,7 @@ export default function EvalPage() {
   return (
     <main className="max-w-5xl mx-auto px-6 py-8 min-h-screen">
       <Masthead />
+      <Nav />
 
       {/* Header bar */}
       <section className="border border-[#DDD3C1] bg-[#FAF7F2] p-6 mb-8 flex flex-wrap items-center justify-between gap-4">

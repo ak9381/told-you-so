@@ -1,7 +1,7 @@
 {
   "$schema": "node_modules/wrangler/config-schema.json",
   "name": "told-you-so",
-  "main": ".open-next/worker.js",
+  "main": "custom-worker.ts",
   "compatibility_date": "2026-10-30",
   "compatibility_flags": [
     "nodejs_compat"
@@ -9,5 +9,8 @@
   "assets": {
     "directory": ".open-next/assets",
     "binding": "ASSETS"
+  },
+  "triggers": {
+    "crons": ["* * * * *", "30 3 * * MON"]
   }
 }
