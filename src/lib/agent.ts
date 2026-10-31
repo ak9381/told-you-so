@@ -1,5 +1,6 @@
 import { createServerClient } from "./supabase";
 import { ExtractedDecision } from "./extractor";
+import { flags, CONFIDENCE_THRESHOLD } from "./flags";
 
 const GEMINI_MODEL = "gemini-3.5-flash-lite";
 
@@ -38,6 +39,15 @@ export interface Objection {
     said_at: string | null;
   };
   now: { quote: string; speaker: string; summary: string };
+  confidence?: number;
+}
+
+// #1: a low-confidence possible conflict (grey "maybe a conflict" chip).
+export interface Maybe {
+  topic: string;
+  old: { quote: string; speaker: string; meeting_seq: number; said_at: string | null };
+  now: { quote: string; speaker: string };
+  confidence: number;
 }
 
 export interface Refinement {
@@ -48,6 +58,7 @@ export interface Refinement {
 
 export interface AgentResult {
   objections: Objection[];
+  maybes: Maybe[];
   refinements: Refinement[];
   trace: TraceStep[];
   path: "agent" | "fallback";
@@ -93,6 +104,7 @@ const TIME_TOPICS = new Set(["deadline", "submission", "launch-date"]);
 interface VerifyOutput {
   verdict: Verdict;
   matchIndex: number; // index into candidates of the matched prior decision, or -1
+  confidence: number; // 0..1
   reasoning: string;
   usedGemini: boolean;
 }
@@ -113,6 +125,7 @@ function deterministicVerify(
       return {
         verdict: "contradicts",
         matchIndex: 0,
+        confidence: 0.9,
         reasoning: `New statement moves the agreed time to a later day, contradicting "${candidates[0].exact_quote}".`,
         usedGemini: false,
       };
@@ -120,6 +133,7 @@ function deterministicVerify(
     return {
       verdict: "refines",
       matchIndex: 0,
+      confidence: 0.9,
       reasoning: `A tighter same-day time refines "${candidates[0].exact_quote}", not a contradiction.`,
       usedGemini: false,
     };
@@ -127,6 +141,7 @@ function deterministicVerify(
   return {
     verdict: "contradicts",
     matchIndex: 0,
+    confidence: 0.7,
     reasoning: `New statement differs from the agreed decision on "${topic}".`,
     usedGemini: false,
   };
@@ -160,7 +175,7 @@ Decide the relationship between the NEW statement and the MOST RELEVANT prior de
 - REFINES: the new statement is a narrower or MORE SPECIFIC version that still fits inside it (e.g. "by 11 PM" or "by midnight" vs an agreed "by 11:59 PM tonight"; a tighter same-day deadline; a more precise value). A refinement is NOT a contradiction.
 - UNRELATED: not actually about any of these decisions.
 
-Return ONLY JSON: {"verdict":"CONTRADICTS|REFINES|UNRELATED","match":<the [number] of the most relevant prior decision, or 0 if none>,"reasoning":"one short sentence"}`;
+Return ONLY JSON: {"verdict":"CONTRADICTS|REFINES|UNRELATED","match":<the [number] of the most relevant prior decision, or 0 if none>,"confidence":<a number 0..1 for how sure you are this is a real contradiction>,"reasoning":"one short sentence"}`;
 
   try {
     const res = await fetch(
@@ -186,7 +201,11 @@ Return ONLY JSON: {"verdict":"CONTRADICTS|REFINES|UNRELATED","match":<the [numbe
     const matchNum = Number(parsed.match) || 0;
     const matchIndex =
       matchNum >= 1 && matchNum <= candidates.length ? matchNum - 1 : 0;
-    return { verdict: norm, matchIndex, reasoning: parsed.reasoning || "", usedGemini: true };
+    const confidence =
+      typeof parsed.confidence === "number"
+        ? Math.max(0, Math.min(1, parsed.confidence))
+        : 0.9;
+    return { verdict: norm, matchIndex, confidence, reasoning: parsed.reasoning || "", usedGemini: true };
   } catch {
     return deterministicVerify(candidates, item, topic);
   }
@@ -203,6 +222,7 @@ export async function runAgent(
 ): Promise<AgentResult> {
   const trace: TraceStep[] = [];
   const objections: Objection[] = [];
+  const maybes: Maybe[] = [];
   const refinements: Refinement[] = [];
   let path: "agent" | "fallback" = "agent";
   let step = 0;
@@ -239,30 +259,56 @@ export async function runAgent(
     });
 
     if (v.verdict === "contradicts") {
-      // 3. queue_action
+      // #1: with the confidence flag on, only >= threshold becomes a red card;
+      // below that it is a grey "maybe a conflict". Flag off = always red.
+      const isHigh = !flags.confidence || v.confidence >= CONFIDENCE_THRESHOLD;
       step += 1;
-      objections.push({
-        topic: dec.topic,
-        old: {
-          id: prior.id,
-          quote: prior.exact_quote,
-          speaker: prior.speaker,
-          meeting_seq: prior.meeting_seq,
-          said_at: prior.said_at,
-        },
-        now: {
-          quote: dec.exact_quote,
-          speaker: dec.speaker,
-          summary: dec.summary,
-        },
-      });
-      trace.push({
-        step,
-        tool: "queue_action",
-        input: `objection on "${dec.topic}"`,
-        output: "OBJECTION queued",
-        reasoning: "Contradiction confirmed — queued a red objection for your verdict.",
-      });
+      if (isHigh) {
+        objections.push({
+          topic: dec.topic,
+          old: {
+            id: prior.id,
+            quote: prior.exact_quote,
+            speaker: prior.speaker,
+            meeting_seq: prior.meeting_seq,
+            said_at: prior.said_at,
+          },
+          now: {
+            quote: dec.exact_quote,
+            speaker: dec.speaker,
+            summary: dec.summary,
+          },
+          confidence: flags.confidence ? v.confidence : undefined,
+        });
+        trace.push({
+          step,
+          tool: "queue_action",
+          input: flags.confidence
+            ? `objection on "${dec.topic}" (${Math.round(v.confidence * 100)}% conf)`
+            : `objection on "${dec.topic}"`,
+          output: "OBJECTION queued",
+          reasoning: "Contradiction confirmed — queued a red objection for your verdict.",
+        });
+      } else {
+        maybes.push({
+          topic: dec.topic,
+          old: {
+            quote: prior.exact_quote,
+            speaker: prior.speaker,
+            meeting_seq: prior.meeting_seq,
+            said_at: prior.said_at,
+          },
+          now: { quote: dec.exact_quote, speaker: dec.speaker },
+          confidence: v.confidence,
+        });
+        trace.push({
+          step,
+          tool: "queue_action",
+          input: `maybe on "${dec.topic}" (${Math.round(v.confidence * 100)}% conf)`,
+          output: "MAYBE queued",
+          reasoning: `Possible conflict, but only ${Math.round(v.confidence * 100)}% confident — shown as a grey maybe, not a red card.`,
+        });
+      }
     } else if (v.verdict === "refines") {
       refinements.push({
         topic: dec.topic,
@@ -272,5 +318,5 @@ export async function runAgent(
     }
   }
 
-  return { objections, refinements, trace, path };
+  return { objections, maybes, refinements, trace, path };
 }

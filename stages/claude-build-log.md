@@ -19,7 +19,14 @@ A running trail of decisions made while building the app end-to-end (Claude Code
 - **Deploy**: `scripts/deploy.sh` (human-run; Claude Code blocks prod deploys in its classifier). First deploy succeeded; all 10 secrets set.
 
 ## Design decisions for stages 6–9
-- (to be filled as built)
+- Agent (MB3) is a deterministic orchestration (search_memory → verify_conflict → queue_action) using Gemini for the verify step, with a deterministic fallback — chosen over LLM-driven function-calling for demo reliability. verify_conflict checks the new decision against ALL prior decisions on the topic in one call and returns which is contradicted.
+- Live mode: regex gate before any Gemini call; demo clip exempt from the 15s cooldown; conservative prompt so a task's due-time isn't a deadline contradiction.
+- Reminders/digest email the Resend account owner (ak9381@nyu.edu) with the person in the subject (no verified domain). Date resolver is exact for "in N minutes".
+- Cron via custom-worker.ts (scheduled handler) → self-fetches /api/reminders and /api/digest with CRON_SECRET.
+
+## Post-v1 enhancements (baseline tag: `v1-working`) — each behind a default-off flag
+Flags live in `src/lib/flags.ts`; enable by setting the env var to `true` in `.dev.vars`/`.env.local` (and as a Worker secret). Cadence per item: build → /eval → debrief → commit; revert if it regresses.
+- **#1 Confidence threshold** (`FLAG_CONFIDENCE`): verify_conflict returns a 0–1 confidence; with the flag on, ≥0.85 → red OBJECTION card (shows "% sure"), below → grey "maybe a conflict" chip. Flag off = identical to v1-working (no confidence field, no maybes). Verified: clear WhatsApp contradictions score 1.0; /eval stays 14/14.
 
 ## Landing page — parked until backend is done (user request)
 Build order: **all backend/core (stages 6–9) first, then the landing page.**

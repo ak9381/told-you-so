@@ -5,7 +5,7 @@ import Masthead from "@/components/Masthead";
 import Nav from "@/components/Nav";
 import { formatSpokenTokens, TokenPart } from "@/lib/messySpeech";
 import { ExtractionResult, ExtractedDecision, ExtractedAction } from "@/lib/extractor";
-import type { Objection, TraceStep, Refinement } from "@/lib/agent";
+import type { Objection, Maybe, TraceStep, Refinement } from "@/lib/agent";
 
 const VERDICTS = ["overrule", "pivot", "keep_old", "flag"] as const;
 const verdictLabel = (v: string) =>
@@ -93,6 +93,7 @@ export default function HomePage() {
 
   // Agent (MB3) output
   const [objections, setObjections] = useState<Objection[]>([]);
+  const [maybes, setMaybes] = useState<Maybe[]>([]);
   const [trace, setTrace] = useState<TraceStep[]>([]);
   const [refinements, setRefinements] = useState<Refinement[]>([]);
   const [agentPath, setAgentPath] = useState<string | null>(null);
@@ -118,6 +119,7 @@ export default function HomePage() {
     setCommittedStatus(null);
     setErrorMsg(null);
     setObjections([]);
+    setMaybes([]);
     setTrace([]);
     setRefinements([]);
     setAgentPath(null);
@@ -150,6 +152,7 @@ export default function HomePage() {
       if (data.extraction) {
         setResult(data.extraction);
         setObjections(data.objections ?? []);
+        setMaybes(data.maybes ?? []);
         setTrace(data.trace ?? []);
         setRefinements(data.refinements ?? []);
         setAgentPath(data.agentPath ?? null);
@@ -483,8 +486,15 @@ export default function HomePage() {
                 <span className="font-serif text-3xl font-black text-[#C0392B] tracking-tight -rotate-1">
                   OBJECTION!
                 </span>
-                <span className="font-mono text-[10px] uppercase tracking-widest text-[#962D22] border border-[#C0392B] px-2 py-0.5">
-                  {obj.topic}
+                <span className="flex items-center gap-2">
+                  {typeof obj.confidence === "number" && (
+                    <span className="font-mono text-[10px] text-[#962D22]">
+                      {Math.round(obj.confidence * 100)}% sure
+                    </span>
+                  )}
+                  <span className="font-mono text-[10px] uppercase tracking-widest text-[#962D22] border border-[#C0392B] px-2 py-0.5">
+                    {obj.topic}
+                  </span>
                 </span>
               </div>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4 font-mono text-xs">
@@ -521,6 +531,27 @@ export default function HomePage() {
                     ✓ {verdictLabel(verdicts[i])} selected
                   </span>
                 )}
+              </div>
+            </div>
+          ))}
+        </section>
+      )}
+
+      {/* Low-confidence "maybe a conflict" chips (#1) */}
+      {maybes.length > 0 && (
+        <section className="mb-8 space-y-2">
+          {maybes.map((m, i) => (
+            <div key={i} className="border border-[#C0392B]/40 bg-[#F4EFE6] p-3">
+              <div className="flex items-center justify-between mb-1">
+                <span className="font-mono text-[11px] uppercase tracking-wider text-[#78716C]">
+                  Maybe a conflict · {m.topic}
+                </span>
+                <span className="font-mono text-[10px] text-[#78716C]">
+                  {Math.round(m.confidence * 100)}% sure
+                </span>
+              </div>
+              <div className="font-mono text-[11px] text-[#78716C]">
+                Earlier: &ldquo;{m.old.quote}&rdquo; — {m.old.speaker} · Now: &ldquo;{m.now.quote}&rdquo;
               </div>
             </div>
           ))}

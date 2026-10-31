@@ -65,6 +65,7 @@ export async function POST(request: NextRequest) {
       extraction,
       projectId,
       objections: agent?.objections ?? [],
+      maybes: agent?.maybes ?? [],
       refinements: agent?.refinements ?? [],
       trace: agent?.trace ?? [],
       agentPath: agent?.path ?? null,
