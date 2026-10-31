@@ -136,6 +136,11 @@ function LoginForm() {
         <p className="mt-4 text-center font-mono text-xs text-[#78716C]">
           No sign-ups. Accounts created by invitation only.
         </p>
+        <p className="mt-2 text-center font-mono text-xs">
+          <a href="/welcome" className="text-[#C0392B] underline hover:text-[#962D22]">
+            What is Told You So? →
+          </a>
+        </p>
       </form>
     </div>
   );

@@ -3,7 +3,7 @@ import type { NextRequest } from "next/server";
 import { updateSession } from "@/lib/supabase-ssr";
 
 // /api/auth/* handles sign-in itself; cron routes authenticate with CRON_SECRET.
-const PUBLIC_ROUTES = ["/login", "/api/auth", "/api/reminders", "/api/digest"];
+const PUBLIC_ROUTES = ["/login", "/welcome", "/api/auth", "/api/reminders", "/api/digest"];
 
 function isPublicRoute(pathname: string): boolean {
   return PUBLIC_ROUTES.some(
