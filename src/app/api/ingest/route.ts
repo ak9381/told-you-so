@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { parseMeetingInput, InputSourceType } from "@/lib/parser";
-import { extractMeetingItems } from "@/lib/extractor";
+import { extractMeetingItems, ExtractionError } from "@/lib/extractor";
 
 export async function POST(request: NextRequest) {
   try {
@@ -17,12 +17,24 @@ export async function POST(request: NextRequest) {
       currentUserName
     );
 
-    // Call extractor
-    const extraction = await extractMeetingItems(
-      rawText,
-      "authenticated-user",
-      currentUserName
-    );
+    // Call extractor — surface AI failures instead of masking them with fallback
+    let extraction;
+    try {
+      extraction = await extractMeetingItems(
+        rawText,
+        "authenticated-user",
+        currentUserName
+      );
+    } catch (err) {
+      const kind = err instanceof ExtractionError ? err.kind : "api_error";
+      const message =
+        err instanceof Error ? err.message : "AI extraction failed.";
+      console.error("Extraction error:", err);
+      return NextResponse.json(
+        { error: message, aiError: true, kind, detectedType, utterances },
+        { status: kind === "daily_limit" ? 429 : 502 }
+      );
+    }
 
     return NextResponse.json({
       ok: true,

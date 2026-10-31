@@ -27,15 +27,18 @@ export async function middleware(request: NextRequest) {
     return NextResponse.next();
   }
 
-  // Cron routes: authenticate via CRON_SECRET header
+  // Cron routes: authenticate via CRON_SECRET header.
+  // If CRON_SECRET is not configured, REJECT — never leave these endpoints open.
   if (isCronRoute(pathname)) {
     const cronSecret = process.env.CRON_SECRET;
-    const authHeader = request.headers.get("authorization");
-    if (cronSecret && authHeader === `Bearer ${cronSecret}`) {
-      return NextResponse.next();
-    }
-    // Also allow if no cron secret is set (during dev)
     if (!cronSecret) {
+      return NextResponse.json(
+        { error: "CRON_SECRET not configured" },
+        { status: 503 }
+      );
+    }
+    const authHeader = request.headers.get("authorization");
+    if (authHeader === `Bearer ${cronSecret}`) {
       return NextResponse.next();
     }
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });

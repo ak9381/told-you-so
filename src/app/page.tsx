@@ -27,6 +27,7 @@ export default function HomePage() {
   const [checkedDecisions, setCheckedDecisions] = useState<Record<number, boolean>>({});
   const [checkedActions, setCheckedActions] = useState<Record<number, boolean>>({});
   const [committedStatus, setCommittedStatus] = useState<string | null>(null);
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
   // Auto-named meeting
   const now = new Date();
@@ -45,6 +46,7 @@ export default function HomePage() {
     if (!rawInput.trim()) return;
     setIsProcessing(true);
     setCommittedStatus(null);
+    setErrorMsg(null);
 
     // Format tokens for "What you said" column
     const formatted = formatSpokenTokens(rawInput);
@@ -63,6 +65,13 @@ export default function HomePage() {
       });
 
       const data = await res.json();
+      if (!res.ok || data.aiError) {
+        setResult(null);
+        setErrorMsg(
+          data.error || "The AI could not process this. Please try again."
+        );
+        return;
+      }
       if (data.extraction) {
         setResult(data.extraction);
         // Pre-tick all items in the tray by default
@@ -80,6 +89,7 @@ export default function HomePage() {
       }
     } catch (e) {
       console.error("Extraction failed:", e);
+      setErrorMsg("Could not reach the server. Please try again.");
     } finally {
       setIsProcessing(false);
     }
@@ -109,10 +119,11 @@ export default function HomePage() {
       if (res.ok) {
         setCommittedStatus("CONFIRMED & RECORDED IN COURT DOCKET");
       } else {
-        setCommittedStatus("DATABASE OFFLINE (SIMULATED COMMIT SUCCESSFUL)");
+        const body = await res.json().catch(() => ({}));
+        setCommittedStatus(`NOT RECORDED — ${body.error || "commit failed"}`);
       }
     } catch {
-      setCommittedStatus("RECORD COMMITTED LOCALLY");
+      setCommittedStatus("NOT RECORDED — could not reach the server");
     } finally {
       setIsProcessing(false);
     }
@@ -248,6 +259,16 @@ export default function HomePage() {
           </button>
         </div>
       </section>
+
+      {/* AI error banner — surfaced instead of a silent fallback */}
+      {errorMsg && (
+        <section className="mb-8 border-2 border-[#C0392B] bg-[#FADBD8] p-4">
+          <p className="font-mono text-xs font-bold uppercase tracking-wider text-[#962D22]">
+            AI Error — nothing was recorded
+          </p>
+          <p className="font-serif text-sm text-[#1C1917] mt-1">{errorMsg}</p>
+        </section>
+      )}
 
       {/* Split View: What you said vs What we understood */}
       {result && (

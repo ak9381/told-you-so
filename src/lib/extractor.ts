@@ -102,7 +102,26 @@ export function extractWithFallback(
 }
 
 /**
- * Main extraction function calling Gemini 3.5 Flash Lite with structured JSON schema.
+ * Error thrown when real AI extraction cannot complete. The UI surfaces this
+ * instead of silently returning fallback output — a silent fallback would hide
+ * a broken model from the judges. extractWithFallback() is reserved for the
+ * "Play demo clip" path only.
+ */
+export class ExtractionError extends Error {
+  kind: "no_key" | "daily_limit" | "api_error";
+  constructor(kind: "no_key" | "daily_limit" | "api_error", message: string) {
+    super(message);
+    this.name = "ExtractionError";
+    this.kind = kind;
+  }
+}
+
+const GEMINI_MODEL = "gemini-3.5-flash-lite";
+
+/**
+ * Main extraction via Gemini 3.5 Flash Lite with a strict JSON schema.
+ * Throws ExtractionError on any failure so callers can surface it, rather than
+ * falling back silently.
  */
 export async function extractMeetingItems(
   rawText: string,
@@ -110,18 +129,21 @@ export async function extractMeetingItems(
   currentUserName = "Akash"
 ): Promise<ExtractionResult> {
   const geminiApiKey = process.env.GEMINI_API_KEY;
-
-  // If no Gemini key, use fallback
   if (!geminiApiKey) {
-    return extractWithFallback(rawText, currentUserName);
+    throw new ExtractionError(
+      "no_key",
+      "AI is not configured (GEMINI_API_KEY is missing)."
+    );
   }
 
-  // Check usage limiter
+  // Check usage limiter — over the cap we stop and tell the user; we do NOT
+  // quietly return canned output.
   const usage = await checkAndIncrementUsage(userId, false);
   if (!usage.allowed) {
-    const fallback = extractWithFallback(rawText, currentUserName);
-    fallback.is_cached = true;
-    return fallback;
+    throw new ExtractionError(
+      "daily_limit",
+      "Daily AI limit reached. Try again tomorrow, or use a demo clip."
+    );
   }
 
   const prompt = `You are an expert courtroom recorder and meeting extractor for an Indian startup team.
@@ -168,9 +190,10 @@ Return ONLY a JSON object adhering to this structure:
   ]
 }`;
 
+  let response: Response;
   try {
-    const response = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-lite:generateContent?key=${geminiApiKey}`,
+    response = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${geminiApiKey}`,
       {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -183,23 +206,31 @@ Return ONLY a JSON object adhering to this structure:
         }),
       }
     );
-
-    if (!response.ok) {
-      console.warn("Gemini API call failed with status:", response.status);
-      return extractWithFallback(rawText, currentUserName);
-    }
-
-    const data = await response.json();
-    const textOutput = data?.candidates?.[0]?.content?.parts?.[0]?.text;
-    if (!textOutput) {
-      return extractWithFallback(rawText, currentUserName);
-    }
-
-    const parsed: ExtractionResult = JSON.parse(textOutput);
-    return parsed;
   } catch (err) {
-    console.error("Gemini extraction error:", err);
-    return extractWithFallback(rawText, currentUserName);
+    throw new ExtractionError(
+      "api_error",
+      `Could not reach the AI service: ${(err as Error).message}`
+    );
+  }
+
+  if (!response.ok) {
+    const detail = await response.text().catch(() => "");
+    throw new ExtractionError(
+      "api_error",
+      `AI service error (HTTP ${response.status}). ${detail.slice(0, 160)}`
+    );
+  }
+
+  const data = await response.json();
+  const textOutput = data?.candidates?.[0]?.content?.parts?.[0]?.text;
+  if (!textOutput) {
+    throw new ExtractionError("api_error", "AI returned an empty response.");
+  }
+
+  try {
+    return JSON.parse(textOutput) as ExtractionResult;
+  } catch {
+    throw new ExtractionError("api_error", "AI returned malformed JSON.");
   }
 }
 
