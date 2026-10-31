@@ -11,6 +11,7 @@ interface ActionRow {
   id: string;
   title: string;
   owner: string | null;
+  project_id?: string | null;
   due_date: string | null;
   reminder_lead_min: number | null;
   source_quote: string | null;
@@ -28,7 +29,7 @@ export async function runReminders(opts?: {
 
   let query = supabase
     .from("actions")
-    .select("id, title, owner, due_date, reminder_lead_min, source_quote")
+    .select("id, title, owner, due_date, reminder_lead_min, source_quote, project_id")
     .eq("status", "open")
     .not("due_date", "is", null);
   if (opts?.actionId) query = query.eq("id", opts.actionId);
@@ -55,11 +56,15 @@ export async function runReminders(opts?: {
     if (existing?.status === "SENT") continue;
 
     const personName = a.owner || "Someone";
-    const { data: person } = await supabase
+    // Prefer the member on this task's project; fall back to a legacy shared member.
+    const { data: candidates } = await supabase
       .from("people")
-      .select("email")
+      .select("email, project_id")
       .eq("name", personName)
-      .maybeSingle();
+      .or(a.project_id ? `project_id.eq.${a.project_id},project_id.is.null` : "project_id.is.null")
+      .limit(5);
+    const person =
+      (candidates ?? []).find((c) => c.project_id === a.project_id) ?? (candidates ?? [])[0] ?? null;
 
     const scheduledAt = new Date(fireAt).toISOString();
     let outboxId = existing?.id as string | undefined;

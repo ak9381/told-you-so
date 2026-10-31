@@ -69,6 +69,14 @@ export async function POST(request: NextRequest) {
 
   // Reassign the task owner.
   if (typeof owner === "string") {
+    if (isUuid(ownerId)) {
+      // The assignee must be on this task's project (or a legacy shared member).
+      const { data: act } = await supabase.from("actions").select("project_id").eq("id", actionId).maybeSingle();
+      const { data: person } = await supabase.from("people").select("project_id").eq("id", ownerId).maybeSingle();
+      if (!person || (person.project_id && person.project_id !== act?.project_id)) {
+        return jsonError("That person isn't on this project's team.", 400);
+      }
+    }
     const { error } = await supabase
       .from("actions")
       .update({ owner: owner.slice(0, 120), owner_id: isUuid(ownerId) ? ownerId : null })

@@ -1,5 +1,8 @@
 import { createServerClient } from "@/lib/supabase";
 import { buildDigest } from "@/lib/digest";
+import { getPageUser } from "@/lib/supabase-ssr";
+import { userProjectIds } from "@/lib/api-guard";
+import { redirect } from "next/navigation";
 import AppShell from "@/components/AppShell";
 import { Card, PageTitle, Chip } from "@/components/ui";
 import EmailDigestButton from "./EmailDigestButton";
@@ -12,7 +15,10 @@ export default async function DigestPage({
   const { person } = await params;
   const name = decodeURIComponent(person);
   const supabase = createServerClient();
-  const d = await buildDigest(supabase, name);
+  const user = await getPageUser();
+  if (!user) redirect("/login");
+  const projectIds = await userProjectIds(supabase, user.id);
+  const d = await buildDigest(supabase, name, projectIds);
 
   const Section = ({ title, children }: { title: string; children: React.ReactNode }) => (
     <Card className="p-6 mb-5">

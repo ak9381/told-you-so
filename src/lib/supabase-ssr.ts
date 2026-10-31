@@ -52,3 +52,23 @@ export async function getRequestUser(request: NextRequest) {
   } = await supabase.auth.getUser();
   return user;
 }
+
+// Server components (pages): read the signed-in user from request cookies.
+export async function getPageUser() {
+  const { cookies } = await import("next/headers");
+  const store = await cookies();
+  const supabase = createServerClient(URL(), ANON(), {
+    cookies: {
+      getAll() {
+        return store.getAll();
+      },
+      setAll() {
+        /* read-only in server components */
+      },
+    },
+  });
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  return user;
+}

@@ -83,3 +83,13 @@ export async function canAccessAction(
   if (!data.project_id) return true;
   return canAccessProject(supabase, data.project_id, userId);
 }
+
+/** Project ids the user can see (own + legacy unowned). Throws on DB error. */
+export async function userProjectIds(supabase: SupabaseClient, userId: string): Promise<string[]> {
+  const { data, error } = await supabase
+    .from("projects")
+    .select("id")
+    .or(`user_id.eq.${userId},user_id.is.null`);
+  if (error) throw new Error(`project list failed: ${error.message}`);
+  return (data ?? []).map((p) => p.id as string);
+}

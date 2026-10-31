@@ -42,6 +42,14 @@ const notionPageUrl = (pageId: string | null) =>
 const FILTERS = ["all", "open", "done", "blocked"] as const;
 type Filter = (typeof FILTERS)[number];
 
+function currentProjectId(): string | null {
+  try {
+    return new URLSearchParams(window.location.search).get("project") || localStorage.getItem("tys_project");
+  } catch {
+    return null;
+  }
+}
+
 export default function LedgerPage() {
   const [actions, setActions] = useState<ActionRow[]>([]);
   const [notionLog, setNotionLog] = useState<NotionLogRow[]>([]);
@@ -74,10 +82,16 @@ export default function LedgerPage() {
   }, []);
   useEffect(() => {
     load();
-    fetch("/api/people")
-      .then((r) => r.json())
-      .then((d) => setPeople(d.people ?? []))
-      .catch(() => {});
+    const pid = currentProjectId();
+    if (pid) {
+      fetch(`/api/people?projectId=${encodeURIComponent(pid)}`)
+        .then((r) => r.json())
+        .then((d) => setPeople(d.people ?? []))
+        .catch((e) => {
+          console.error("team load failed:", e);
+          setMsg("Couldn't load team members. Refresh to try again.");
+        });
+    }
   }, [load]);
 
   async function addMember() {
@@ -86,7 +100,7 @@ export default function LedgerPage() {
     const r = await fetch("/api/people", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ name, email: newMemberEmail.trim() }),
+      body: JSON.stringify({ name, email: newMemberEmail.trim(), projectId: currentProjectId() }),
     });
     const d = await r.json();
     if (d.person) {

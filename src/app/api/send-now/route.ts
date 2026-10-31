@@ -3,7 +3,7 @@ import { runReminders } from "@/lib/reminders";
 import { runDigests, buildDigest, renderDigestHtml } from "@/lib/digest";
 import { createServerClient } from "@/lib/supabase";
 import { sendEmail } from "@/lib/email";
-import { requireUser, readJson, canAccessAction, isUuid, jsonError } from "@/lib/api-guard";
+import { requireUser, readJson, canAccessAction, isUuid, jsonError, userProjectIds } from "@/lib/api-guard";
 
 // Authenticated UI endpoint for the "Send now" / "Remind now" buttons.
 export async function POST(request: NextRequest) {
@@ -23,13 +23,14 @@ export async function POST(request: NextRequest) {
   }
 
   if (kind === "digest-all") {
-    const r = await runDigests();
+    // Only the caller's projects' teams — never every user's people.
+    const r = await runDigests({ projectIds: await userProjectIds(createServerClient(), auth.user.id) });
     return NextResponse.json({ ok: true, ...r });
   }
 
   if (kind === "digest-one" && typeof person === "string" && person.trim()) {
     const supabase = createServerClient();
-    const digest = await buildDigest(supabase, person);
+    const digest = await buildDigest(supabase, person, await userProjectIds(supabase, auth.user.id));
     const html = renderDigestHtml(digest);
     const { data: ob } = await supabase
       .from("outbox")
