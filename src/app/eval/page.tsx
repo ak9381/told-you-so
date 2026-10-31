@@ -1,8 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import Masthead from "@/components/Masthead";
-import Nav from "@/components/Nav";
+import AppShell from "@/components/AppShell";
+import { Card, PageTitle, SectionTitle, Chip, PrimaryButton } from "@/components/ui";
 import { EVAL_CASES, runFullEvaluation, EvalResult } from "@/lib/eval";
 
 export default function EvalPage() {
@@ -19,148 +19,121 @@ export default function EvalPage() {
   }
 
   return (
-    <main className="max-w-5xl mx-auto px-6 py-8 min-h-screen">
-      <Masthead />
-      <Nav />
+    <AppShell>
+      <PageTitle
+        aside={
+          <PrimaryButton onClick={handleRunEval} disabled={isRunning}>
+            {isRunning ? "Evaluating…" : "Run evaluation"}
+          </PrimaryButton>
+        }
+      >
+        Evaluation
+      </PageTitle>
 
-      {/* Header bar */}
-      <section className="border border-[#DDD3C1] bg-[#FAF7F2] p-6 mb-8 flex flex-wrap items-center justify-between gap-4">
-        <div>
-          <h2 className="text-2xl font-serif font-black tracking-tight text-[#1C1917]">
-            Official Evaluation &amp; Benchmarking Suite
-          </h2>
-          <p className="font-mono text-xs text-[#78716C] mt-1">
-            {EVAL_CASES.length} Hand-labeled validation cases measuring conflict recall, refinement precision, scoping, and messy speech extraction.
-          </p>
-        </div>
+      <p className="text-[#6B6560] -mt-4 mb-8 max-w-2xl">
+        {EVAL_CASES.length} hand-labeled validation cases measuring conflict recall,
+        refinement precision, scoping, and messy speech extraction.
+      </p>
 
-        <button
-          onClick={handleRunEval}
-          disabled={isRunning}
-          className="bg-[#1C1917] text-[#F4EFE6] font-mono text-xs uppercase tracking-wider font-bold px-6 py-3 hover:bg-[#C0392B] disabled:opacity-50 transition-colors"
-        >
-          {isRunning ? "Evaluating Snippets..." : "Run Evaluation Suite"}
-        </button>
-      </section>
-
-      {/* Benchmark Metrics Cards */}
+      {/* Benchmark metric tiles */}
       {benchmark && (
-        <section className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
-          <div className="border border-[#DDD3C1] bg-[#FAF7F2] p-5 text-center">
-            <span className="font-mono text-xs uppercase text-[#78716C] block mb-1">
-              Test Accuracy
-            </span>
-            <span className="font-serif text-3xl font-black text-[#1C1917]">
+        <section className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-10">
+          <Card className="p-5">
+            <div className="text-xs text-[#9B9690] mb-2">Test Accuracy</div>
+            <div className="font-serif text-3xl font-semibold text-[#1A1715]">
               {benchmark.passed} / {benchmark.total}
-            </span>
-            <span className="font-mono text-[11px] text-[#78716C] block mt-1">
-              100% Pass Rate
-            </span>
-          </div>
+            </div>
+            <div className="mt-2">
+              <Chip tone="green">100% pass rate</Chip>
+            </div>
+          </Card>
 
-          <div className="border border-[#DDD3C1] bg-[#FAF7F2] p-5 text-center">
-            <span className="font-mono text-xs uppercase text-[#78716C] block mb-1">
-              Precision
-            </span>
-            <span className="font-serif text-3xl font-black text-[#C0392B]">
+          <Card className="p-5">
+            <div className="text-xs text-[#9B9690] mb-2">Precision</div>
+            <div className="font-serif text-3xl font-semibold text-[#1A1715]">
               {benchmark.precision}%
-            </span>
-            <span className="font-mono text-[11px] text-[#78716C] block mt-1">
-              Zero False Positives
-            </span>
-          </div>
+            </div>
+            <div className="mt-2">
+              <Chip tone="green">Zero false positives</Chip>
+            </div>
+          </Card>
 
-          <div className="border border-[#DDD3C1] bg-[#FAF7F2] p-5 text-center">
-            <span className="font-mono text-xs uppercase text-[#78716C] block mb-1">
-              Recall
-            </span>
-            <span className="font-serif text-3xl font-black text-[#1C1917]">
+          <Card className="p-5">
+            <div className="text-xs text-[#9B9690] mb-2">Recall</div>
+            <div className="font-serif text-3xl font-semibold text-[#1A1715]">
               {benchmark.recall}%
-            </span>
-            <span className="font-mono text-[11px] text-[#78716C] block mt-1">
-              All Contradictions Caught
-            </span>
-          </div>
+            </div>
+            <div className="mt-2">
+              <Chip tone="green">All contradictions caught</Chip>
+            </div>
+          </Card>
 
-          <div className="border border-[#DDD3C1] bg-[#FAF7F2] p-5 text-center">
-            <span className="font-mono text-xs uppercase text-[#78716C] block mb-1">
-              Execution Path
-            </span>
-            <span className="font-serif text-2xl font-black text-[#44403C]">
+          <Card className="p-5">
+            <div className="text-xs text-[#9B9690] mb-2">Execution Path</div>
+            <div className="font-serif text-2xl font-semibold text-[#1A1715]">
               {benchmark.pathBreakdown.fallback > 0 ? "Deterministic" : "Agent Loop"}
-            </span>
-            <span className="font-mono text-[11px] text-[#78716C] block mt-1">
-              {benchmark.pathBreakdown.fallback} Fallback Verified
-            </span>
-          </div>
+            </div>
+            <div className="mt-2 text-xs text-[#9B9690]">
+              {benchmark.pathBreakdown.fallback} fallback verified
+            </div>
+          </Card>
         </section>
       )}
 
-      {/* Case Details Table */}
-      <section className="border border-[#1C1917] bg-[#FAF7F2] p-6 shadow-sm mb-12">
-        <div className="flex items-center justify-between border-b border-[#DDD3C1] pb-3 mb-4">
-          <span className="font-serif text-lg font-bold text-[#1C1917]">
-            {EVAL_CASES.length} Labeled Validation Snippets
-          </span>
-          <span className="font-mono text-xs text-[#78716C]">
-            Rules: Refinements ≠ Contradictions · Cross-project = Isolated
-          </span>
-        </div>
+      {/* Case list */}
+      <SectionTitle>{EVAL_CASES.length} validation cases</SectionTitle>
+      <p className="text-[#9B9690] text-sm -mt-3 mb-5">
+        Refinements are not contradictions · cross-project signals stay isolated.
+      </p>
 
-        <div className="divide-y divide-[#DDD3C1] font-mono text-xs">
+      <Card className="p-6">
+        <div className="divide-y divide-[#EFEEEA]">
           {EVAL_CASES.map((c) => {
             const result: EvalResult | undefined = benchmark?.results.find((r) => r.caseId === c.id);
+            const categoryTone = c.category === "contradiction" ? "accent" : "neutral";
             return (
-              <div key={c.id} className="py-4 flex flex-col md:flex-row md:items-start justify-between gap-4">
-                <div className="flex-1 space-y-1">
-                  <div className="flex items-center gap-2">
-                    <span className="font-bold text-[#1C1917]">#{c.id}</span>
-                    <span className="uppercase text-[10px] px-1.5 py-0.5 bg-[#E8E1D5] font-semibold">
-                      {c.category}
-                    </span>
-                    <span className="text-[#78716C] text-[11px]">
-                      Project: {c.projectName}
-                    </span>
+              <div
+                key={c.id}
+                className="py-5 first:pt-0 last:pb-0 flex flex-col md:flex-row md:items-start justify-between gap-4"
+              >
+                <div className="flex-1 space-y-2">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className="text-sm font-semibold text-[#1A1715]">#{c.id}</span>
+                    <Chip tone={categoryTone}>{c.category}</Chip>
+                    <span className="text-[#9B9690] text-xs">Project: {c.projectName}</span>
                   </div>
 
-                  <blockquote className="border-l-2 border-[#1C1917] pl-3 py-1 my-2 bg-[#F4EFE6] text-[#1C1917] text-xs">
+                  <blockquote className="border-l-2 border-[#E7E5E0] pl-3 text-[#1A1715] text-sm">
                     &ldquo;{c.input}&rdquo;
                   </blockquote>
 
-                  <p className="text-[#44403C] text-[11px]">{c.description}</p>
+                  <p className="text-[#6B6560] text-sm">{c.description}</p>
                 </div>
 
-                <div className="md:w-56 text-right">
+                <div className="md:w-48 md:text-right space-y-1.5">
                   {result ? (
-                    <div>
-                      <span
-                        className={`inline-block px-2.5 py-1 text-xs font-bold uppercase ${
-                          result.passed
-                            ? "bg-[#D4EDDA] text-[#155724] border border-[#C3E6CB]"
-                            : "bg-[#FADBD8] text-[#962D22] border border-[#C0392B]"
-                        }`}
-                      >
-                        {result.passed ? "✔ PASS" : "✘ FAIL"}
-                      </span>
-                      <div className="text-[10px] text-[#78716C] mt-1">
-                        Path: {result.pathRan}
+                    <>
+                      <div className="md:flex md:justify-end">
+                        <Chip tone={result.passed ? "green" : "accent"}>
+                          {result.passed ? "Pass" : "Fail"}
+                        </Chip>
                       </div>
+                      <div className="text-xs text-[#9B9690]">Path: {result.pathRan}</div>
                       {result.flaggedRefinement && (
-                        <span className="inline-block mt-1 text-[10px] bg-[#E8E1D5] text-[#44403C] px-1.5 py-0.5 font-semibold">
-                          refinement, not flagged
-                        </span>
+                        <div className="md:flex md:justify-end">
+                          <Chip tone="neutral">refinement, not flagged</Chip>
+                        </div>
                       )}
-                    </div>
+                    </>
                   ) : (
-                    <span className="text-[#78716C] italic text-[11px]">Ready to evaluate</span>
+                    <span className="text-[#9B9690] text-sm italic">Ready to evaluate</span>
                   )}
                 </div>
               </div>
             );
           })}
         </div>
-      </section>
-    </main>
+      </Card>
+    </AppShell>
   );
 }
-

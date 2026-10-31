@@ -1,36 +1,49 @@
 @import "tailwindcss";
 
 :root {
-  --paper: #F4EFE6;
-  --paper-light: #FAF7F2;
-  --paper-dark: #E8E1D5;
-  --paper-border: #DDD3C1;
-  --ink: #1C1917;
-  --ink-muted: #44403C;
-  --ink-faint: #78716C;
-  --stamp-red: #C0392B;
-  --stamp-red-faint: #FADBD8;
-  --stamp-red-dark: #962D22;
+  --bg: #F7F6F3;
+  --surface: #FFFFFF;
+  --surface-2: #F1F0EC;
+  --border: #E7E5E0;
+  --ink: #1A1715;
+  --ink-muted: #6B6560;
+  --ink-faint: #9B9690;
+  --accent: #C0392B;       /* reserved for real objections */
+  --accent-faint: #FBE9E7;
+  --dark: #1C1C1E;         /* primary buttons / "what we understood" card */
+  --green: #1C7A4A;
 }
 
 @theme {
-  --color-paper: var(--paper);
-  --color-paper-light: var(--paper-light);
-  --color-paper-dark: var(--paper-dark);
-  --color-paper-border: var(--paper-border);
+  --color-bg: var(--bg);
+  --color-surface: var(--surface);
+  --color-surface-2: var(--surface-2);
+  --color-border: var(--border);
   --color-ink: var(--ink);
   --color-ink-muted: var(--ink-muted);
   --color-ink-faint: var(--ink-faint);
-  --color-stamp-red: var(--stamp-red);
-  --color-stamp-red-faint: var(--stamp-red-faint);
-  --color-stamp-red-dark: var(--stamp-red-dark);
+  --color-accent: var(--accent);
+  --color-accent-faint: var(--accent-faint);
+  --color-dark: var(--dark);
+  --color-green: var(--green);
   --font-serif: var(--font-fraunces), Georgia, serif;
-  --font-mono: var(--font-jetbrains-mono), Menlo, monospace;
+  --font-sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
 }
 
 body {
-  background-color: var(--paper);
+  background-color: var(--bg);
   color: var(--ink);
-  font-family: var(--font-serif);
+  font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
   min-height: 100vh;
+}
+
+/* Soft elevation for cards */
+.card-soft {
+  box-shadow: 0 1px 2px rgba(17, 17, 17, 0.04), 0 2px 10px rgba(17, 17, 17, 0.05);
+}
+.card-hover {
+  transition: box-shadow 0.18s ease, transform 0.18s ease;
+}
+.card-hover:hover {
+  box-shadow: 0 2px 6px rgba(17, 17, 17, 0.06), 0 8px 24px rgba(17, 17, 17, 0.08);
 }

@@ -42,14 +42,21 @@ const DIFFERENTIATORS = [
 
 export default function WelcomePage() {
   return (
-    <main className="min-h-screen bg-[#F4EFE6] text-[#1C1917]">
+    <main className="min-h-screen bg-[#F4EFE6] text-[#1C1917] overflow-x-hidden">
+      <style>{`
+        @keyframes tysFadeUp { from { opacity:0; transform:translateY(20px);} to { opacity:1; transform:translateY(0);} }
+        @keyframes tysStamp { 0%{opacity:0; transform:scale(1.7) rotate(-10deg);} 55%{opacity:1; transform:scale(.92) rotate(-2deg);} 100%{transform:scale(1) rotate(-1deg);} }
+        @keyframes tysLineGrow { from { transform:scaleX(0);} to { transform:scaleX(1);} }
+        .tys-fade { animation: tysFadeUp .7s ease-out both; }
+        .tys-stamp { animation: tysStamp .75s cubic-bezier(.2,.8,.2,1) both; }
+        .tys-line { transform-origin:left; animation: tysLineGrow .8s ease-out both; }
+        @media (prefers-reduced-motion: reduce) { .tys-fade,.tys-stamp,.tys-line { animation: none; } }
+      `}</style>
       <div className="max-w-6xl mx-auto px-6 py-10">
-        {/* Masthead */}
-        <header className="text-center border-b-2 border-[#1C1917] pb-6 mb-10">
-          <div className="flex justify-between font-mono text-[10px] uppercase tracking-widest text-[#78716C] mb-4">
-            <span>Courtroom Ledger &amp; Record</span>
-            <span>Vol. I · Edition 2026</span>
-            <span>Official Proceedings</span>
+        {/* Header */}
+        <header className="text-center border-b border-[#DDD3C1] pb-6 mb-10 tys-fade">
+          <div className="flex justify-center font-mono text-[10px] uppercase tracking-widest text-[#78716C] mb-4">
+            <span>Decision memory for teams · across calls, chats &amp; voice</span>
           </div>
           <h1 className="font-serif text-6xl md:text-7xl font-black tracking-tight">Told You So</h1>
           <p className="font-serif italic text-xl text-[#C0392B] mt-2">

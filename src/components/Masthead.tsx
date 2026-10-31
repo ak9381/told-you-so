@@ -1,25 +1,17 @@
 export default function Masthead() {
   return (
-    <header className="border-b-2 border-double border-[#1C1917] pb-6 pt-8 mb-8 text-center">
-      <div className="flex items-center justify-between border-b border-[#DDD3C1] pb-2 mb-4 text-xs font-mono uppercase tracking-widest text-[#78716C]">
-        <span>Courtroom Ledger & Record</span>
-        <span>Vol. I · Edition 2026</span>
-        <span>Official Proceedings</span>
-      </div>
-      <h1 className="text-6xl md:text-7xl font-serif font-black tracking-tight text-[#1C1917] mb-2">
+    <header className="border-b border-[#DDD3C1] pb-6 pt-6 mb-8 text-center">
+      <h1 className="text-5xl md:text-6xl font-serif font-black tracking-tight text-[#1C1917] mb-2">
         Told You So
       </h1>
-      <p className="text-lg md:text-xl font-serif italic text-[#C0392B] font-medium tracking-wide">
+      <p className="text-lg font-serif italic text-[#C0392B] font-medium tracking-wide">
         the meeting agent that argues back.
       </p>
-      <div className="mt-4 flex items-center justify-center gap-4 text-xs font-mono text-[#44403C]">
-        <span>EST. OCT 2026</span>
+      <div className="mt-3 flex items-center justify-center gap-3 text-[11px] font-mono text-[#78716C] uppercase tracking-wide">
+        <span>Remembers what you decided</span>
         <span>•</span>
-        <span>UNCOMPROMISING RECALL</span>
-        <span>•</span>
-        <span>NO MORE LOST DECISIONS</span>
+        <span>Objects when you drift</span>
       </div>
     </header>
   );
 }
-

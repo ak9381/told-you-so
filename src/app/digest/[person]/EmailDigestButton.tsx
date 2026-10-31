@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { PrimaryButton } from "@/components/ui";
 
 export default function EmailDigestButton({ person }: { person: string }) {
   const [msg, setMsg] = useState("");
@@ -26,14 +27,10 @@ export default function EmailDigestButton({ person }: { person: string }) {
 
   return (
     <div className="flex items-center gap-3">
-      <button
-        onClick={send}
-        disabled={busy}
-        className="bg-[#C0392B] text-[#F4EFE6] font-mono text-xs uppercase tracking-wider px-5 py-2.5 hover:bg-[#962D22] disabled:opacity-50"
-      >
+      {msg && <span className="text-sm text-[#9B9690]">{msg}</span>}
+      <PrimaryButton onClick={send} disabled={busy}>
         Email this digest
-      </button>
-      {msg && <span className="font-mono text-xs text-[#78716C]">{msg}</span>}
+      </PrimaryButton>
     </div>
   );
 }

@@ -78,7 +78,7 @@ function LoginForm() {
       >
         <div className="border-b border-[#DDD3C1] pb-3 mb-6">
           <span className="font-mono text-xs uppercase tracking-wider text-[#78716C]">
-            Authorized Personnel Only
+            Sign in
           </span>
         </div>
 
@@ -130,7 +130,7 @@ function LoginForm() {
           disabled={loading}
           className="mt-6 w-full bg-[#1C1917] text-[#F4EFE6] font-mono text-sm uppercase tracking-wider py-3 hover:bg-[#44403C] disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
         >
-          {loading ? "Entering…" : "Enter the Courtroom"}
+          {loading ? "Signing in…" : "Log in"}
         </button>
 
         <p className="mt-4 text-center font-mono text-xs text-[#78716C]">

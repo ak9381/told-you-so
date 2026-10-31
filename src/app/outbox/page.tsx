@@ -1,8 +1,8 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import Masthead from "@/components/Masthead";
-import Nav from "@/components/Nav";
+import AppShell from "@/components/AppShell";
+import { Card, PageTitle, Chip } from "@/components/ui";
 
 interface OutboxRow {
   id: string;
@@ -17,10 +17,10 @@ interface OutboxRow {
   resend_id: string | null;
 }
 
-function statusColor(s: string) {
-  if (s === "SENT") return "text-[#1C7A4A]";
-  if (s === "FAILED") return "text-[#C0392B]";
-  return "text-[#78716C]";
+function statusTone(s: string): "neutral" | "accent" | "green" {
+  if (s === "SENT") return "green";
+  if (s === "FAILED") return "accent";
+  return "neutral";
 }
 const fmt = (t: string | null) => (t ? new Date(t).toLocaleTimeString() : "—");
 
@@ -43,55 +43,57 @@ export default function OutboxPage() {
   }, []);
 
   return (
-    <main className="max-w-6xl mx-auto px-6 py-8 min-h-screen">
-      <Masthead />
-      <Nav />
+    <AppShell>
+      <PageTitle
+        aside={
+          <span className="text-xs text-[#9B9690]">auto-refreshes every 5s · {tick}</span>
+        }
+      >
+        Outbox
+      </PageTitle>
 
-      <div className="flex items-center justify-between mb-5">
-        <h2 className="font-serif text-2xl font-bold text-[#1C1917]">Outbox</h2>
-        <span className="font-mono text-[10px] text-[#78716C] uppercase">auto-refreshes every 5s · {tick}</span>
-      </div>
-
-      <div className="overflow-x-auto border border-[#DDD3C1] bg-[#FAF7F2]">
-        <table className="w-full font-mono text-xs">
-          <thead>
-            <tr className="border-b-2 border-[#1C1917] text-left text-[#78716C] uppercase">
-              <th className="p-2">Type</th>
-              <th className="p-2">Person</th>
-              <th className="p-2">Subject</th>
-              <th className="p-2">Scheduled</th>
-              <th className="p-2">Sent</th>
-              <th className="p-2">Channel</th>
-              <th className="p-2">Status</th>
-              <th className="p-2">Resend ID</th>
-            </tr>
-          </thead>
-          <tbody>
-            {rows.length === 0 && (
-              <tr>
-                <td colSpan={8} className="p-4 text-[#78716C] italic text-center">
-                  No reminders or digests yet.
-                </td>
+      <Card className="p-0 overflow-hidden">
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="bg-[#F7F6F3] text-left text-[#9B9690] text-xs uppercase tracking-wider">
+                <th className="px-4 py-3 font-medium">Type</th>
+                <th className="px-4 py-3 font-medium">Person</th>
+                <th className="px-4 py-3 font-medium">Subject</th>
+                <th className="px-4 py-3 font-medium">Scheduled</th>
+                <th className="px-4 py-3 font-medium">Sent</th>
+                <th className="px-4 py-3 font-medium">Channel</th>
+                <th className="px-4 py-3 font-medium">Status</th>
+                <th className="px-4 py-3 font-medium">Resend ID</th>
               </tr>
-            )}
-            {rows.map((r) => (
-              <tr key={r.id} className="border-b border-[#DDD3C1]">
-                <td className="p-2 uppercase">{r.type}</td>
-                <td className="p-2">{r.person_name || "—"}</td>
-                <td className="p-2">{r.subject || "—"}</td>
-                <td className="p-2">{fmt(r.scheduled_at)}</td>
-                <td className="p-2">{fmt(r.sent_at)}</td>
-                <td className="p-2">{r.channel}</td>
-                <td className={`p-2 font-bold ${statusColor(r.status)}`}>
-                  {r.status}
-                  {r.error ? ` (${r.error})` : ""}
-                </td>
-                <td className="p-2 text-[#78716C]">{r.resend_id ? r.resend_id.slice(0, 10) + "…" : "—"}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-    </main>
+            </thead>
+            <tbody>
+              {rows.length === 0 && (
+                <tr>
+                  <td colSpan={8} className="px-4 py-8 text-[#9B9690] italic text-center">
+                    No reminders or digests yet.
+                  </td>
+                </tr>
+              )}
+              {rows.map((r) => (
+                <tr key={r.id} className="border-t border-[#EFEEEA]">
+                  <td className="px-4 py-3 text-[#6B6560] uppercase text-xs tracking-wide">{r.type}</td>
+                  <td className="px-4 py-3 text-[#1A1715]">{r.person_name || "—"}</td>
+                  <td className="px-4 py-3 text-[#1A1715]">{r.subject || "—"}</td>
+                  <td className="px-4 py-3 text-[#6B6560]">{fmt(r.scheduled_at)}</td>
+                  <td className="px-4 py-3 text-[#6B6560]">{fmt(r.sent_at)}</td>
+                  <td className="px-4 py-3 text-[#6B6560]">{r.channel}</td>
+                  <td className="px-4 py-3">
+                    <Chip tone={statusTone(r.status)}>{r.status}</Chip>
+                    {r.error ? <span className="ml-2 text-xs text-[#C0392B]">{r.error}</span> : null}
+                  </td>
+                  <td className="px-4 py-3 text-[#9B9690]">{r.resend_id ? r.resend_id.slice(0, 10) + "…" : "—"}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </Card>
+    </AppShell>
   );
 }

@@ -2,8 +2,15 @@
 
 import { useState, useRef, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
-import Masthead from "@/components/Masthead";
-import Nav from "@/components/Nav";
+import AppShell from "@/components/AppShell";
+import {
+  Card,
+  PageTitle,
+  SectionTitle,
+  Chip,
+  PrimaryButton,
+  SecondaryButton,
+} from "@/components/ui";
 
 interface ProjectOption {
   id: string;
@@ -46,6 +53,38 @@ const DEMO_CLIPS: Record<string, { speaker: string; text: string }[]> = {
 };
 const DEFAULT_CLIP = DEMO_CLIPS["Hackathon submission"];
 
+// Turn a pasted Google Meet / Zoom URL into a browser-joinable URL.
+// Returns null if the link is neither Meet nor Zoom.
+function normalizeMeetingLink(raw: string): string | null {
+  const trimmed = raw.trim();
+  if (!trimmed) return null;
+  let u: URL;
+  try {
+    u = new URL(trimmed.startsWith("http") ? trimmed : `https://${trimmed}`);
+  } catch {
+    return null;
+  }
+  const host = u.hostname.toLowerCase();
+
+  // Google Meet: meet.google.com/abc-defg-hij
+  if (host === "meet.google.com") {
+    return u.toString();
+  }
+
+  // Zoom: *.zoom.us/j/<id> (optionally ?pwd=…) → browser-join URL
+  if (host === "zoom.us" || host.endsWith(".zoom.us")) {
+    const m = u.pathname.match(/\/(?:j|wc\/join)\/(\d+)/);
+    if (m) {
+      const id = m[1];
+      const pwd = u.searchParams.get("pwd");
+      const q = pwd ? `?pwd=${encodeURIComponent(pwd)}` : "";
+      return `https://zoom.us/wc/join/${id}${q}`;
+    }
+  }
+
+  return null;
+}
+
 export default function LivePage() {
   const [projects, setProjects] = useState<ProjectOption[]>([]);
   const [projectId, setProjectId] = useState<string>("");
@@ -56,6 +95,11 @@ export default function LivePage() {
   const [lastSpeaker, setLastSpeaker] = useState("Speaker ?");
   const [status, setStatus] = useState<string>("");
   const [supported, setSupported] = useState(true);
+
+  // Launch-from-link feature state (client-side only).
+  const [meetingLink, setMeetingLink] = useState("");
+  const [linkError, setLinkError] = useState("");
+  const [launchHint, setLaunchHint] = useState("");
 
   const startRef = useRef<number>(Date.now());
   const lineId = useRef(0);
@@ -242,6 +286,29 @@ export default function LivePage() {
     }
   }
 
+  // Launch the meeting popup from a pasted link, then start listening.
+  function launchFromLink() {
+    setLinkError("");
+    setLaunchHint("");
+    const url = normalizeMeetingLink(meetingLink);
+    if (!url) {
+      setLinkError("Only Google Meet and Zoom links are supported for now.");
+      return;
+    }
+    // Open the meeting on the left half of the screen.
+    const sw = typeof window !== "undefined" ? window.screen.availWidth : 1280;
+    const sh = typeof window !== "undefined" ? window.screen.availHeight : 800;
+    const w = Math.floor(sw / 2);
+    window.open(url, "_blank", `width=${w},height=${sh},left=0,top=0`);
+
+    if (supported) {
+      setLaunchHint("Sign in if asked, join the call, and we'll start listening.");
+      startListening();
+    } else {
+      setLaunchHint("Open this in Chrome to listen live — or use Play Demo Clip.");
+    }
+  }
+
   function tagSpeaker(id: number, name: string) {
     if (!name) return;
     setLastSpeaker(name);
@@ -251,146 +318,163 @@ export default function LivePage() {
   const projectName = projects.find((p) => p.id === projectId)?.name || "Meeting";
   const objectionCount = cards.filter((c) => c.verdict === "contradicts").length;
 
+  const titleControls = (
+    <>
+      <select
+        value={projectId}
+        onChange={(e) => setProjectId(e.target.value)}
+        className="bg-white border border-[#E0DED8] rounded-xl px-4 py-2.5 text-sm text-[#1A1715] focus:outline-none focus:border-[#9B9690]"
+      >
+        {projects.map((p) => (
+          <option key={p.id} value={p.id}>
+            {p.name}
+          </option>
+        ))}
+      </select>
+      <Chip tone="dark">Live · {projectName} #2</Chip>
+    </>
+  );
+
   return (
-    <main className="max-w-5xl mx-auto px-6 py-8 min-h-screen">
-      <Masthead />
-      <Nav />
+    <AppShell>
+      <PageTitle aside={titleControls}>Live Meeting</PageTitle>
+
+      {/* Launch from a meeting link */}
+      <Card className="p-6 mb-6" hover>
+        <SectionTitle>Launch from a meeting link</SectionTitle>
+        <div className="flex flex-col sm:flex-row gap-3 sm:items-start">
+          <div className="flex-1 min-w-0">
+            <input
+              type="text"
+              value={meetingLink}
+              onChange={(e) => {
+                setMeetingLink(e.target.value);
+                if (linkError) setLinkError("");
+              }}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") launchFromLink();
+              }}
+              placeholder="Paste a Google Meet or Zoom link…"
+              className="w-full bg-white border border-[#E0DED8] rounded-xl px-4 py-2.5 text-sm text-[#1A1715] placeholder:text-[#9B9690] focus:outline-none focus:border-[#9B9690]"
+            />
+            {linkError && (
+              <p className="text-sm text-[#C0392B] mt-2">{linkError}</p>
+            )}
+            {launchHint && !linkError && (
+              <p className="text-sm text-[#6B6560] mt-2">{launchHint}</p>
+            )}
+          </div>
+          <PrimaryButton onClick={launchFromLink} className="shrink-0">
+            Launch
+          </PrimaryButton>
+        </div>
+        <p className="text-sm text-[#9B9690] mt-3">
+          We open the meeting in a window on the left and start listening in this tab.
+        </p>
+      </Card>
 
       {/* Controls */}
-      <section className="border border-[#DDD3C1] bg-[#FAF7F2] p-6 mb-6">
-        <div className="flex flex-wrap items-center justify-between gap-4">
-          <div className="flex items-center gap-3">
-            <label className="font-mono text-xs uppercase tracking-wider text-[#78716C]">
-              Workstream:
-            </label>
-            <select
-              value={projectId}
-              onChange={(e) => setProjectId(e.target.value)}
-              className="border border-[#DDD3C1] bg-[#F4EFE6] px-3 py-1 font-mono text-sm text-[#1C1917]"
-            >
-              {projects.map((p) => (
-                <option key={p.id} value={p.id}>
-                  {p.name}
-                </option>
-              ))}
-            </select>
-          </div>
-          <span className="font-mono text-xs text-[#1C1917] font-semibold bg-[#E8E1D5] px-3 py-1 border border-[#DDD3C1]">
-            LIVE · {projectName} #2
-          </span>
-        </div>
-
-        <div className="mt-4 flex flex-wrap gap-3 items-center">
+      <Card className="p-6 mb-6">
+        <div className="flex flex-wrap gap-3 items-center">
           {!listening ? (
-            <button
-              onClick={startListening}
-              disabled={!supported || !projectId}
-              className="bg-[#C0392B] text-[#F4EFE6] font-mono text-xs uppercase tracking-wider px-5 py-2.5 hover:bg-[#962D22] disabled:opacity-50"
-            >
+            <PrimaryButton onClick={startListening} disabled={!supported || !projectId}>
               ● Start Listening
-            </button>
+            </PrimaryButton>
           ) : (
-            <button
-              onClick={stopListening}
-              className="bg-[#1C1917] text-[#F4EFE6] font-mono text-xs uppercase tracking-wider px-5 py-2.5"
-            >
-              ■ Stop
-            </button>
+            <PrimaryButton onClick={stopListening}>■ Stop</PrimaryButton>
           )}
-          <button
-            onClick={playDemoClip}
-            disabled={!projectId}
-            className="bg-[#1C1917] text-[#F4EFE6] font-mono text-xs uppercase tracking-wider px-5 py-2.5 hover:bg-[#44403C] disabled:opacity-50"
-          >
+          <SecondaryButton onClick={playDemoClip} disabled={!projectId}>
             ▶ Play Demo Clip
-          </button>
+          </SecondaryButton>
           {lines.length > 0 && (
-            <button
-              onClick={endMeeting}
-              className="border border-[#1C1917] text-[#1C1917] font-mono text-xs uppercase tracking-wider px-5 py-2.5 hover:bg-[#1C1917] hover:text-[#F4EFE6]"
-            >
-              ⤓ End Meeting → Tray
-            </button>
+            <SecondaryButton onClick={endMeeting}>End Meeting → Tray</SecondaryButton>
           )}
-          {status && (
-            <span className="font-mono text-xs text-[#78716C]">{status}</span>
-          )}
+          {status && <span className="text-sm text-[#6B6560]">{status}</span>}
           {!supported && (
-            <span className="font-mono text-xs text-[#C0392B]">
+            <span className="text-sm text-[#C0392B]">
               Web Speech not available in this browser — use Play Demo Clip.
             </span>
           )}
         </div>
-        <p className="font-mono text-[11px] text-[#78716C] mt-3">
+        <p className="text-sm text-[#9B9690] mt-4">
           Uses Chrome&rsquo;s built-in speech recognition (not Wispr), so it doesn&rsquo;t touch your Wispr word count.
         </p>
-      </section>
+      </Card>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         {/* Live transcript */}
-        <section className="border border-[#DDD3C1] bg-[#FAF7F2] p-5">
-          <h3 className="font-serif text-lg font-bold text-[#1C1917] border-b border-[#DDD3C1] pb-2 mb-3">
-            Live Transcript
-          </h3>
-          <div className="space-y-2 font-mono text-xs max-h-[420px] overflow-y-auto">
+        <Card className="p-6">
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="font-serif text-xl font-medium text-[#1A1715]">Live Transcript</h3>
+          </div>
+          <div className="space-y-2.5 text-sm max-h-[420px] overflow-y-auto">
             {lines.length === 0 && (
-              <p className="text-[#78716C] italic">Nothing yet — start listening or play the demo clip.</p>
+              <p className="text-[#9B9690]">Nothing yet — start listening or play the demo clip.</p>
             )}
             {lines.map((l) => (
-              <div key={l.id} className="flex items-start gap-2">
-                <span className="text-[#78716C] shrink-0">[{l.ts}]</span>
+              <div key={l.id} className="flex items-start gap-2.5">
+                <span className="text-[#9B9690] shrink-0 tabular-nums text-xs pt-0.5">{l.ts}</span>
                 <input
                   value={l.speaker}
                   onChange={(e) => tagSpeaker(l.id, e.target.value)}
                   onFocus={(e) => {
                     if (e.target.value === "Speaker ?") tagSpeaker(l.id, lastSpeaker === "Speaker ?" ? "" : lastSpeaker);
                   }}
-                  className={`w-24 shrink-0 bg-transparent border-b border-dashed ${
-                    l.speaker === "Speaker ?" ? "border-[#C0392B] text-[#C0392B]" : "border-[#DDD3C1] text-[#1C1917]"
-                  } focus:outline-none`}
+                  className={`w-24 shrink-0 bg-transparent border-b border-dashed text-sm focus:outline-none ${
+                    l.speaker === "Speaker ?" ? "border-[#C0392B] text-[#C0392B]" : "border-[#E0DED8] text-[#6B6560]"
+                  }`}
                 />
-                <span className="text-[#1C1917]">{l.text}</span>
+                <span className="text-[#1A1715]">{l.text}</span>
               </div>
             ))}
             {interim && (
-              <div className="flex items-start gap-2 opacity-50">
-                <span className="text-[#78716C] shrink-0">[…]</span>
-                <span className="text-[#A8A29E] italic">{interim}</span>
+              <div className="flex items-start gap-2.5 opacity-50">
+                <span className="text-[#9B9690] shrink-0 text-xs pt-0.5">…</span>
+                <span className="text-[#9B9690] italic">{interim}</span>
               </div>
             )}
           </div>
-        </section>
+        </Card>
 
         {/* Live objections */}
-        <section className="border border-[#DDD3C1] bg-[#FAF7F2] p-5">
-          <div className="flex items-center justify-between border-b border-[#DDD3C1] pb-2 mb-3">
-            <h3 className="font-serif text-lg font-bold text-[#1C1917]">Live Objections</h3>
-            <span className="font-mono text-[10px] uppercase text-[#C0392B]">
+        <Card className="p-6">
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="font-serif text-xl font-medium text-[#1A1715]">Live Objections</h3>
+            <Chip tone={objectionCount > 0 ? "accent" : "neutral"}>
               {objectionCount} objection{objectionCount === 1 ? "" : "s"}
-            </span>
+            </Chip>
           </div>
           <div className="space-y-3 max-h-[420px] overflow-y-auto">
             {cards.length === 0 && (
-              <p className="font-mono text-xs text-[#78716C] italic">No conflicts flagged yet.</p>
+              <p className="text-sm text-[#9B9690]">No conflicts flagged yet.</p>
             )}
             {cards.map((c, i) => {
               if (c.verdict === "contradicts") {
                 return (
-                  <div key={i} className="border-2 border-[#C0392B] bg-[#FADBD8]/50 p-3">
-                    <div className="flex items-center justify-between mb-2">
-                      <span className="font-serif text-xl font-black text-[#C0392B] -rotate-1">OBJECTION!</span>
-                      <span className="font-mono text-[9px] uppercase border border-[#C0392B] text-[#962D22] px-1.5 py-0.5">
-                        {c.topic} · [{c.ts}]
+                  <div
+                    key={i}
+                    className="rounded-xl border border-[#C0392B]/40 bg-[#FBE9E7] p-4"
+                  >
+                    <div className="flex items-center justify-between mb-2.5">
+                      <span className="font-serif text-base font-semibold text-[#C0392B]">
+                        Objection
+                      </span>
+                      <span className="text-[10px] uppercase tracking-wider text-[#C0392B]">
+                        {c.topic} · {c.ts}
                       </span>
                     </div>
-                    <div className="font-mono text-[11px] space-y-1">
-                      <div className="text-[#78716C]">
-                        <span className="uppercase text-[9px] font-bold">Then</span> — &ldquo;{c.old_quote}&rdquo;
+                    <div className="text-sm space-y-1.5">
+                      <div className="text-[#6B6560]">
+                        <span className="uppercase text-[10px] font-semibold tracking-wider">Then</span>{" "}
+                        — &ldquo;{c.old_quote}&rdquo;
                         {c.old_speaker ? ` — ${c.old_speaker}` : ""}
                         {c.old_meeting_seq ? ` · M#${c.old_meeting_seq}` : ""}
                       </div>
-                      <div className="text-[#1C1917]">
-                        <span className="uppercase text-[9px] font-bold text-[#C0392B]">Now</span> — &ldquo;{c.quote}&rdquo;
+                      <div className="text-[#1A1715]">
+                        <span className="uppercase text-[10px] font-semibold tracking-wider text-[#C0392B]">
+                          Now
+                        </span>{" "}
+                        — &ldquo;{c.quote}&rdquo;
                       </div>
                     </div>
                   </div>
@@ -398,27 +482,35 @@ export default function LivePage() {
               }
               if (c.verdict === "refines") {
                 return (
-                  <div key={i} className="bg-[#E8E1D5] border border-[#DDD3C1] px-3 py-2 font-mono text-[11px]">
-                    <span className="uppercase text-[9px] text-[#78716C]">refinement · not flagged · [{c.ts}]</span>
-                    <div className="text-[#1C1917]">&ldquo;{c.quote}&rdquo;</div>
+                  <div key={i} className="rounded-xl bg-[#F1F0EC] border border-[#E7E5E0] px-4 py-3">
+                    <div className="flex items-center gap-2 mb-1">
+                      <Chip tone="neutral">Refinement</Chip>
+                      <span className="text-[10px] uppercase tracking-wider text-[#9B9690]">
+                        not flagged · {c.ts}
+                      </span>
+                    </div>
+                    <div className="text-sm text-[#1A1715]">&ldquo;{c.quote}&rdquo;</div>
                   </div>
                 );
               }
               return (
-                <div key={i} className="bg-[#F4EFE6] border border-[#DDD3C1] px-3 py-2 font-mono text-[11px]">
-                  <span className="uppercase text-[9px] text-[#1C7A4A]">new decision · [{c.ts}]</span>
-                  <div className="text-[#1C1917]">&ldquo;{c.quote}&rdquo;</div>
+                <div key={i} className="rounded-xl bg-white border border-[#E7E5E0] px-4 py-3">
+                  <div className="flex items-center gap-2 mb-1">
+                    <Chip tone="green">New decision</Chip>
+                    <span className="text-[10px] uppercase tracking-wider text-[#9B9690]">{c.ts}</span>
+                  </div>
+                  <div className="text-sm text-[#1A1715]">&ldquo;{c.quote}&rdquo;</div>
                 </div>
               );
             })}
           </div>
-        </section>
+        </Card>
       </div>
 
-      <p className="font-mono text-[11px] text-[#78716C] mt-6 text-center">
+      <p className="text-sm text-[#6B6560] mt-6 text-center">
         After the call, confirm decisions on the{" "}
-        <a href="/" className="underline hover:text-[#1C1917]">home page</a> — paste the transcript into the Debrief/Paste box to run the full agent and tray.
+        <a href="/" className="underline hover:text-[#1A1715]">home page</a> — paste the transcript into the Debrief/Paste box to run the full agent and tray.
       </p>
-    </main>
+    </AppShell>
   );
 }
