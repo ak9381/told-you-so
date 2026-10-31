@@ -28,6 +28,7 @@ export default function OutboxPage() {
   const [rows, setRows] = useState<OutboxRow[]>([]);
   const [tick, setTick] = useState(0);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState("");
 
   useEffect(() => {
     const load = () => {
@@ -36,11 +37,19 @@ export default function OutboxPage() {
         pid =
           new URLSearchParams(window.location.search).get("project") ||
           localStorage.getItem("tys_project");
-      } catch {}
+      } catch {
+        // storage/URL/scroll unavailable (e.g. private mode) — safe to use defaults
+      }
       fetch(pid ? `/api/outbox?projectId=${pid}` : "/api/outbox")
         .then((r) => r.json())
-        .then((d) => setRows(d.outbox ?? []))
-        .catch(() => {})
+        .then((d) => {
+          setRows(d.outbox ?? []);
+          setLoadError("");
+        })
+        .catch((e) => {
+          console.error("outbox request failed:", e);
+          setLoadError("Couldn't load reminders. Retrying…");
+        })
         .finally(() => setLoading(false));
     };
     load();
@@ -60,6 +69,11 @@ export default function OutboxPage() {
       >
         Reminders
       </PageTitle>
+      {loadError && (
+        <p role="alert" className="text-sm text-[#B4532A] mb-4">
+          {loadError}
+        </p>
+      )}
 
       <p className="text-[#6B6560] -mt-4 mb-8 max-w-2xl">
         Every reminder &amp; weekly-digest email we&rsquo;ve scheduled or sent, with delivery status.

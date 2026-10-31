@@ -370,7 +370,9 @@ export default function HomePage() {
     handleExtract(transcript);
     try {
       window.scrollTo({ top: 0, behavior: "smooth" });
-    } catch {}
+    } catch {
+      // storage/URL/scroll unavailable (e.g. private mode) — safe to use defaults
+    }
   }
 
   function tagSpeaker(id: number, name: string) {
@@ -436,7 +438,9 @@ export default function HomePage() {
       urlProject =
         new URLSearchParams(window.location.search).get("project") ||
         localStorage.getItem("tys_project");
-    } catch {}
+    } catch {
+      // storage/URL/scroll unavailable (e.g. private mode) — safe to use defaults
+    }
     fetch("/api/projects")
       .then((r) => r.json())
       .then((d) => {
@@ -458,7 +462,7 @@ export default function HomePage() {
     fetch(`/api/timeline?projectId=${pid}`)
       .then((r) => r.json())
       .then((d) => setTimeline(d.decisions ?? []))
-      .catch(() => {});
+      .catch((e) => console.error("timeline request failed:", e));
   }
   useEffect(() => {
     loadTimeline(selectedProjectId);
@@ -557,7 +561,7 @@ export default function HomePage() {
         verdict,
         confidence: obj.confidence,
       }),
-    }).catch(() => {});
+    }).catch((e) => console.error("log-verdict request failed:", e));
   }
 
   async function handleConfirm() {

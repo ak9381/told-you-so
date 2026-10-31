@@ -31,13 +31,13 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
     fetch("/api/projects")
       .then((r) => r.json())
       .then((d) => setProjects(d.projects ?? []))
-      .catch(() => {});
+      .catch((e) => console.error("projects request failed:", e));
     // Read the user from the server (do NOT call auth.getUser() client-side —
     // it would trigger a token refresh that conflicts with the middleware's).
     fetch("/api/me")
       .then((r) => r.json())
       .then((d) => setEmail(d.email ?? ""))
-      .catch(() => {});
+      .catch((e) => console.error("me request failed:", e));
     // Selected project is global: URL ?project= wins (deep links), else the
     // last choice from localStorage. Keep them in sync.
     try {
@@ -46,7 +46,9 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
       const chosen = url || ls;
       setActiveProject(chosen);
       if (url && url !== ls) localStorage.setItem("tys_project", url);
-    } catch {}
+    } catch {
+      // storage/URL/scroll unavailable (e.g. private mode) — safe to use defaults
+    }
   }, [pathname]);
 
   const handle = (email.split("@")[0] || "you").replace(/\+.*$/, "");
@@ -58,7 +60,9 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
   async function logout() {
     try {
       await fetch("/api/auth/logout", { method: "POST" });
-    } catch {}
+    } catch (e) {
+      console.error("logout request failed:", e);
+    }
     window.location.href = "/welcome";
   }
 
@@ -67,7 +71,9 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
   function switchProject(id: string) {
     try {
       localStorage.setItem("tys_project", id);
-    } catch {}
+    } catch {
+      // storage/URL/scroll unavailable (e.g. private mode) — safe to use defaults
+    }
     const base = pathname || "/";
     window.location.href = `${base}?project=${id}`;
   }
@@ -89,7 +95,9 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
       }
       try {
         localStorage.setItem("tys_project", d.project.id);
-      } catch {}
+      } catch {
+        // storage/URL/scroll unavailable (e.g. private mode) — safe to use defaults
+      }
       window.location.href = `/?project=${d.project.id}`;
     } catch {
       setCreateMsg("Could not create the project");

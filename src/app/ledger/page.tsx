@@ -68,7 +68,9 @@ export default function LedgerPage() {
       pid =
         new URLSearchParams(window.location.search).get("project") ||
         localStorage.getItem("tys_project");
-    } catch {}
+    } catch {
+      // storage/URL/scroll unavailable (e.g. private mode) — safe to use defaults
+    }
     const url = pid ? `/api/ledger?projectId=${pid}` : "/api/ledger";
     fetch(url)
       .then((r) => r.json())
@@ -77,7 +79,10 @@ export default function LedgerPage() {
         setNotionLog(d.notionLog ?? []);
         setNotionDbUrl(d.notionDbUrl ?? null);
       })
-      .catch(() => {})
+      .catch((e) => {
+        console.error("ledger request failed:", e);
+        setMsg("Couldn't load tasks. Refresh to try again.");
+      })
       .finally(() => setLoading(false));
   }, []);
   useEffect(() => {
