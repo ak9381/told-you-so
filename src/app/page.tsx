@@ -12,8 +12,15 @@ const verdictLabel = (v: string) =>
   v === "keep_old" ? "Keep old" : v.charAt(0).toUpperCase() + v.slice(1);
 
 const POLITE_CARDS = process.env.NEXT_PUBLIC_FLAG_POLITE_CARDS === "true";
+// Date-only values (meeting_date) are IST calendar days; render them in IST.
 const shortDate = (iso?: string | null) =>
-  iso ? new Date(iso).toLocaleDateString("en-US", { month: "short", day: "numeric" }) : "";
+  iso
+    ? new Date(/^\d{4}-\d{2}-\d{2}$/.test(iso) ? `${iso}T12:00:00+05:30` : iso).toLocaleDateString("en-US", {
+        month: "short",
+        day: "numeric",
+        timeZone: "Asia/Kolkata",
+      })
+    : "";
 
 interface TimelineDecision {
   id: string;
@@ -23,6 +30,7 @@ interface TimelineDecision {
   said_at: string | null;
   meeting_seq: number;
   status: string;
+  meeting_date?: string | null;
 }
 
 function groupByTopic(decisions: TimelineDecision[]) {
@@ -156,7 +164,7 @@ export default function HomePage() {
   const [projectsLoaded, setProjectsLoaded] = useState(false);
   const [meetingLink, setMeetingLink] = useState("");
   const [meetingName, setMeetingName] = useState("");
-  const [meetingDate, setMeetingDate] = useState<string>(() => new Date().toISOString().slice(0, 10));
+  const [meetingDate, setMeetingDate] = useState<string>(() => new Date().toLocaleDateString("en-CA")); // local date, not UTC
   const [uploadType, setUploadType] = useState<"notes" | "transcript" | "whatsapp" | "slack">(
     "notes"
   );
@@ -581,6 +589,7 @@ export default function HomePage() {
         body: JSON.stringify({
           projectId: selectedProjectId,
           meetingTitle: meetingTitleToUse,
+          meetingDate,
           sourceType: sourceLabel,
           rawText: rawInput,
           decisions: selectedDecisions,
@@ -1331,6 +1340,7 @@ export default function HomePage() {
                           &ldquo;{d.exact_quote}&rdquo;{" "}
                           <span className="text-[#9B9690]">
                             — {d.speaker} · M#{d.meeting_seq}
+                            {d.meeting_date ? ` · ${shortDate(d.meeting_date)}` : ""}
                             {d.said_at ? ` · ${d.said_at}` : ""}
                           </span>
                         </span>

@@ -22,6 +22,18 @@ export interface MemoryDecision {
   said_at: string | null;
   meeting_seq: number;
   created_at?: string;
+  meeting_date?: string | null; // real meeting date (migration 005)
+}
+
+// Supabase embeds a to-one relation as an object or 1-element array.
+function withMeetingDate(rows: unknown[] | null): MemoryDecision[] {
+  return (rows ?? []).map((r) => {
+    const row = r as MemoryDecision & { meeting?: { meeting_date?: string | null } | { meeting_date?: string | null }[] };
+    const m = Array.isArray(row.meeting) ? row.meeting[0] : row.meeting;
+    const { meeting: _m, ...rest } = row;
+    void _m;
+    return { ...rest, meeting_date: m?.meeting_date ?? null };
+  });
 }
 
 export interface TraceStep {
@@ -76,16 +88,17 @@ async function searchMemory(
   topic: string
 ): Promise<MemoryDecision[]> {
   const supabase = createServerClient();
-  const { data } = await supabase
+  const { data, error } = await supabase
     .from("decisions")
-    .select("id, topic, exact_quote, speaker, said_at, meeting_seq, created_at")
+    .select("id, topic, exact_quote, speaker, said_at, meeting_seq, created_at, meeting:meetings(meeting_date)")
     .eq("project_id", projectId)
     .eq("topic", topic)
     .eq("status", "active")
     .is("superseded_by", null)
     .order("meeting_seq", { ascending: false })
     .order("created_at", { ascending: false });
-  return (data as MemoryDecision[]) ?? [];
+  if (error) throw new Error(`search_memory failed: ${error.message}`);
+  return withMeetingDate(data);
 }
 
 /** All active (non-superseded) decisions in a project — the live memory. */
@@ -93,14 +106,15 @@ export async function getProjectMemory(
   projectId: string
 ): Promise<MemoryDecision[]> {
   const supabase = createServerClient();
-  const { data } = await supabase
+  const { data, error } = await supabase
     .from("decisions")
-    .select("id, topic, exact_quote, speaker, said_at, meeting_seq, created_at")
+    .select("id, topic, exact_quote, speaker, said_at, meeting_seq, created_at, meeting:meetings(meeting_date)")
     .eq("project_id", projectId)
     .eq("status", "active")
     .is("superseded_by", null)
     .order("meeting_seq", { ascending: false });
-  return (data as MemoryDecision[]) ?? [];
+  if (error) throw new Error(`project memory failed: ${error.message}`);
+  return withMeetingDate(data);
 }
 
 const TIME_TOPICS = new Set(["deadline", "submission", "launch-date"]);
@@ -291,7 +305,7 @@ export async function runAgent(
             speaker: prior.speaker,
             meeting_seq: prior.meeting_seq,
             said_at: prior.said_at,
-            decidedAt: prior.created_at ?? null,
+            decidedAt: prior.meeting_date ?? prior.created_at ?? null,
           },
           now: {
             quote: dec.exact_quote,

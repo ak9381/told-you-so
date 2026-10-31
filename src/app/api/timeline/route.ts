@@ -17,7 +17,7 @@ export async function GET(request: NextRequest) {
   }
   const { data, error } = await supabase
     .from("decisions")
-    .select("id, topic, exact_quote, speaker, said_at, meeting_seq, status")
+    .select("id, topic, exact_quote, speaker, said_at, meeting_seq, status, meeting:meetings(meeting_date)")
     .eq("project_id", projectId)
     .order("topic", { ascending: true })
     .order("meeting_seq", { ascending: false })
@@ -27,5 +27,11 @@ export async function GET(request: NextRequest) {
     console.error("timeline error:", error);
     return NextResponse.json({ decisions: [] }, { status: 500 });
   }
-  return NextResponse.json({ decisions: data ?? [] });
+  const decisions = (data ?? []).map((d) => {
+    const m = Array.isArray(d.meeting) ? d.meeting[0] : d.meeting;
+    const { meeting: _m, ...rest } = d;
+    void _m;
+    return { ...rest, meeting_date: (m as { meeting_date?: string | null } | null)?.meeting_date ?? null };
+  });
+  return NextResponse.json({ decisions });
 }

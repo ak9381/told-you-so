@@ -28,6 +28,7 @@ export async function POST(request: NextRequest) {
       decisions,
       actions,
       objectionVerdicts,
+      meetingDate,
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
     } = parsed.body as Record<string, any>;
 
@@ -72,6 +73,10 @@ export async function POST(request: NextRequest) {
         user_id: userId,
         seq: nextSeq,
         title: meetingTitle.slice(0, 200),
+        meeting_date:
+          typeof meetingDate === "string" && /^\d{4}-\d{2}-\d{2}$/.test(meetingDate) && !isNaN(Date.parse(meetingDate))
+            ? meetingDate
+            : new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Kolkata" }),
         source_type: sourceType || "debrief",
         raw_text: rawText,
       })
