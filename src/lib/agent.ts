@@ -128,42 +128,53 @@ interface VerifyOutput {
   usedGemini: boolean;
 }
 
-/** Deterministic fallback: check the new item against each candidate in turn. */
-function deterministicVerify(
+/**
+ * Deterministic fallback (Gemini down, over the cap, or past the per-ingest
+ * budget). It is deliberately CONSERVATIVE (B4): it can only ever produce a
+ * low-confidence "maybe" — never a hard red objection — because it has no real
+ * understanding of the statements.
+ */
+export const FALLBACK_MAX_CONFIDENCE = 0.5;
+export function deterministicVerify(
   candidates: MemoryDecision[],
-  item: ExtractedDecision,
+  item: Pick<ExtractedDecision, "exact_quote" | "summary">,
   topic: string
 ): VerifyOutput {
   const newText = `${item.exact_quote} ${item.summary}`.toLowerCase();
-  const pushesLater =
-    /tomorrow|next day|next week|monday|tuesday|wednesday|thursday|friday/.test(
-      newText
-    );
+  const prior = (candidates[0]?.exact_quote ?? "").toLowerCase();
+  if (newText.trim() && prior && newText.includes(prior)) {
+    return { verdict: "refines", matchIndex: 0, confidence: 0.2, reasoning: "Restates the agreed decision.", usedGemini: false };
+  }
   if (TIME_TOPICS.has(topic)) {
+    const pushesLater = /tomorrow|next day|next week|monday|tuesday|wednesday|thursday|friday|saturday|sunday|postpone|push(ed)? (it )?back|delay|later/.test(newText);
     if (pushesLater) {
       return {
         verdict: "contradicts",
         matchIndex: 0,
-        confidence: 0.9,
-        reasoning: `New statement moves the agreed time to a later day, contradicting "${candidates[0].exact_quote}".`,
+        confidence: 0.45,
+        reasoning: `Possibly moves the agreed time later than "${candidates[0].exact_quote}" (offline check — AI unavailable, so this is only a maybe).`,
         usedGemini: false,
       };
     }
     return {
       verdict: "refines",
       matchIndex: 0,
-      confidence: 0.9,
-      reasoning: `A tighter same-day time refines "${candidates[0].exact_quote}", not a contradiction.`,
+      confidence: 0.3,
+      reasoning: `Looks like a same-day/tighter time that fits "${candidates[0].exact_quote}" (offline check).`,
       usedGemini: false,
     };
   }
-  return {
-    verdict: "contradicts",
-    matchIndex: 0,
-    confidence: 0.7,
-    reasoning: `New statement differs from the agreed decision on "${topic}".`,
-    usedGemini: false,
-  };
+  // Negation/antonym hint → weak maybe; otherwise don't flag at all.
+  const negates = /\b(no|not|don't|dont|never|instead|switch|drop|cancel|scrap|replace|rather)\b/.test(newText);
+  return negates
+    ? {
+        verdict: "contradicts",
+        matchIndex: 0,
+        confidence: 0.35,
+        reasoning: `May differ from the agreed decision on "${topic}" (offline check — AI unavailable, so this is only a maybe).`,
+        usedGemini: false,
+      }
+    : { verdict: "unrelated", matchIndex: 0, confidence: 0.1, reasoning: "Offline check found no clear conflict.", usedGemini: false };
 }
 
 /**
@@ -295,7 +306,8 @@ export async function runAgent(
     if (v.verdict === "contradicts") {
       // #1: with the confidence flag on, only >= threshold becomes a red card;
       // below that it is a grey "maybe a conflict". Flag off = always red.
-      const isHigh = !flags.confidence || v.confidence >= CONFIDENCE_THRESHOLD;
+      // B4: a deterministic (non-AI) verdict is never a red card.
+      const isHigh = v.usedGemini && (!flags.confidence || v.confidence >= CONFIDENCE_THRESHOLD);
       step += 1;
       if (isHigh) {
         objections.push({
