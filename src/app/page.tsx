@@ -438,7 +438,10 @@ export default function HomePage() {
           setSelectedProjectId(match ? (urlProject as string) : d.projects[0].id);
         }
       })
-      .catch(() => {})
+      .catch((e) => {
+        console.error("projects load failed:", e);
+        setErrorMsg("Couldn't load your projects. Check your connection and refresh.");
+      })
       .finally(() => setProjectsLoaded(true));
   }, []);
 
@@ -655,11 +658,13 @@ export default function HomePage() {
             <input
               value={meetingName}
               onChange={(e) => setMeetingName(e.target.value)}
+              aria-label="Name this meeting"
               placeholder="Name this meeting (optional)"
               className="flex-1 min-w-[140px] rounded-lg border border-[#E7E5E0] bg-white/60 px-3 py-2 text-sm text-[#1A1715] placeholder:text-[#9B9690] focus:outline-none focus:border-[#B9B6AE]"
             />
             <input
               type="date"
+                aria-label="Meeting date"
               value={meetingDate}
               onChange={(e) => setMeetingDate(e.target.value)}
               className="shrink-0 rounded-lg border border-[#E7E5E0] bg-white/60 px-2.5 py-2 text-sm text-[#6B6560] focus:outline-none focus:border-[#B9B6AE]"
@@ -668,6 +673,7 @@ export default function HomePage() {
           </div>
           <textarea
             rows={4}
+            aria-label="Meeting notes or transcript"
             value={rawInput}
             onChange={(e) => setRawInput(e.target.value)}
             placeholder="Click Use mic and talk, or type. e.g. Um, so Harsh, no wait, I take the video by Tuesday…"
@@ -737,11 +743,13 @@ export default function HomePage() {
             <input
               value={meetingName}
               onChange={(e) => setMeetingName(e.target.value)}
+              aria-label="Name this source"
               placeholder="Name this source (optional)"
               className="flex-1 min-w-[120px] rounded-lg border border-[#E7E5E0] bg-white/60 px-3 py-2 text-sm text-[#1A1715] placeholder:text-[#9B9690] focus:outline-none focus:border-[#B9B6AE]"
             />
             <input
               type="date"
+                aria-label="Meeting date"
               value={meetingDate}
               onChange={(e) => setMeetingDate(e.target.value)}
               className="shrink-0 rounded-lg border border-[#E7E5E0] bg-white/60 px-2.5 py-2 text-sm text-[#6B6560] focus:outline-none focus:border-[#B9B6AE]"
@@ -810,11 +818,13 @@ export default function HomePage() {
             <input
               value={meetingName}
               onChange={(e) => setMeetingName(e.target.value)}
+              aria-label="Name this live meeting"
               placeholder="Name this live meeting (optional)"
               className="flex-1 min-w-[140px] rounded-lg border border-[#E7E5E0] bg-white/60 px-3 py-2 text-sm text-[#1A1715] placeholder:text-[#9B9690] focus:outline-none focus:border-[#B9B6AE]"
             />
             <input
               type="date"
+                aria-label="Meeting date"
               value={meetingDate}
               onChange={(e) => setMeetingDate(e.target.value)}
               className="shrink-0 rounded-lg border border-[#E7E5E0] bg-white/60 px-2.5 py-2 text-sm text-[#6B6560] focus:outline-none focus:border-[#B9B6AE]"
@@ -909,6 +919,7 @@ export default function HomePage() {
                   <div key={l.id} className="flex items-start gap-2.5">
                     <span className="text-[#9B9690] shrink-0 tabular-nums text-xs pt-0.5">{l.ts}</span>
                     <input
+                      aria-label="Speaker name"
                       value={l.speaker}
                       onChange={(e) => tagSpeaker(l.id, e.target.value)}
                       onFocus={(e) => {
@@ -1005,8 +1016,8 @@ export default function HomePage() {
       {/* AI error */}
       {errorMsg && (
         <Card className="p-4 mb-8 border-l-4 border-[#C0392B]">
-          <p className="text-xs font-semibold uppercase tracking-wide text-[#C0392B]">
-            AI error — nothing was recorded
+          <p role="alert" className="text-xs font-semibold uppercase tracking-wide text-[#C0392B]">
+            Something went wrong — nothing was recorded
           </p>
           <p className="text-sm text-[#1A1715] mt-1">{errorMsg}</p>
         </Card>
