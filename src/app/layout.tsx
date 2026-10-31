@@ -28,7 +28,7 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body
-        className={`${fraunces.variable} ${jetbrainsMono.variable} bg-[#F4EFE6] text-[#1C1917] min-h-screen antialiased`}
+        className={`${fraunces.variable} ${jetbrainsMono.variable} min-h-screen antialiased`}
       >
         {children}
       </body>
