@@ -41,6 +41,17 @@ export async function GET(request: NextRequest) {
     if (o.old_decision_id) flagged.add(o.old_decision_id as string);
     if (o.new_decision_id) flagged.add(o.new_decision_id as string);
   }
+  // Verify scores saved at confirm time (activity_log decision_saved rows).
+  const scores: Record<string, number> = {};
+  const { data: saves } = await supabase
+    .from("activity_log")
+    .select("data")
+    .eq("project_id", projectId)
+    .eq("kind", "decision_saved");
+  for (const row of saves ?? []) {
+    const vs = (row.data as { verifyScores?: Record<string, number> } | null)?.verifyScores;
+    if (vs && typeof vs === "object") Object.assign(scores, vs);
+  }
   const decisions = (data ?? []).map((d) => {
     const m = Array.isArray(d.meeting) ? d.meeting[0] : d.meeting;
     const { meeting: _m, ...rest } = d;
@@ -51,6 +62,7 @@ export async function GET(request: NextRequest) {
       meeting_date: mm?.meeting_date ?? null,
       meeting_title: mm?.title ?? null,
       flagged: flagged.has(d.id as string),
+      verify_pct: typeof scores[d.id as string] === "number" ? scores[d.id as string] : null,
     };
   });
   // Never cache: the history must update right after Tick & confirm.

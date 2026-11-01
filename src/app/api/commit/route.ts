@@ -32,6 +32,7 @@ export async function POST(request: NextRequest) {
       actions,
       objectionVerdicts,
       meetingDate,
+      decisionScores,
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
     } = parsed.body as Record<string, any>;
 
@@ -270,12 +271,21 @@ export async function POST(request: NextRequest) {
       if (notionFailed) warnings.push(`${notionFailed} task(s) couldn't be filed to Notion (saved here).`);
     }
 
+    // Verify score (0-100) per saved decision, from the review tray.
+    const verifyScores: Record<string, number> = {};
+    if (Array.isArray(decisionScores)) {
+      insertedDecisions.forEach((row, i) => {
+        const v = decisionScores[i];
+        if (typeof v === "number" && v >= 0 && v <= 100) verifyScores[row.id] = Math.round(v);
+      });
+    }
+
     await logActivity({
       userId: auth.user.id,
       projectId,
       kind: "decision_saved",
       summary: `Saved meeting "${meetingTitle}" with ${decisions?.length ?? 0} decisions and ${actions?.length ?? 0} actions`,
-      data: { meetingId: meeting.id, seq: nextSeq, decisionCount: decisions?.length ?? 0, actionCount: actions?.length ?? 0 },
+      data: { meetingId: meeting.id, seq: nextSeq, decisionCount: decisions?.length ?? 0, actionCount: actions?.length ?? 0, verifyScores },
     });
 
     return NextResponse.json({

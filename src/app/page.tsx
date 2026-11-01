@@ -45,6 +45,7 @@ interface TimelineDecision {
   meeting_date?: string | null;
   meeting_title?: string | null;
   flagged?: boolean;
+  verify_pct?: number | null;
 }
 
 function groupByTopic(decisions: TimelineDecision[]) {
@@ -740,6 +741,14 @@ export default function HomePage() {
 
     const selectedDecisions = result.decisions.filter((_, i) => checkedDecisions[i]);
     const selectedActions = result.actions.filter((_, i) => checkedActions[i]);
+    // The tray's verify score per committed decision, saved so history can show it.
+    const decisionScores = result.decisions
+      .map((_, i) => i)
+      .filter((i) => checkedDecisions[i])
+      .map((i) => {
+        const c = verification?.status === "verified" ? findCheck(verification, "decision", i) : undefined;
+        return c ? Math.min(100, Math.round(c.confidence * 10) * 10) : null;
+      });
 
     // B3: position of each extracted decision inside the committed subset.
     const committedPos: Record<number, number> = {};
@@ -776,6 +785,7 @@ export default function HomePage() {
           decisions: selectedDecisions,
           actions: selectedActions,
           objectionVerdicts,
+          decisionScores,
         }),
       });
 
@@ -1566,12 +1576,21 @@ export default function HomePage() {
                             — {d.speaker} · {meetingLabel(d.meeting_seq, d.meeting_title, d.meeting_date)}
                             {d.said_at ? ` · ${offsetLabel(d.said_at)}` : ""}
                           </span>{" "}
-                          <span
-                            className="inline-block rounded bg-[#F3F3F1] px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-[#9B9690]"
-                            title="Saved before verification scores were recorded"
-                          >
-                            not verified
-                          </span>
+                          {typeof d.verify_pct === "number" ? (
+                            <span
+                              className={`inline-block rounded px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wider ${d.verify_pct >= LOW_CONFIDENCE * 100 ? "bg-[#E6F3EC] text-[#1C7A4A]" : "bg-[#FBE9E7] text-[#C0392B]"}`}
+                              title="Verify score from the review tray when this was confirmed"
+                            >
+                              {d.verify_pct}% verified
+                            </span>
+                          ) : (
+                            <span
+                              className="inline-block rounded bg-[#F3F3F1] px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-[#9B9690]"
+                              title="No verification score was recorded for this decision"
+                            >
+                              not verified
+                            </span>
+                          )}
                         </span>
                         {struck && (
                           <Chip tone="accent">{badge}</Chip>
