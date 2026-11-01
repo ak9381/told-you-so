@@ -185,6 +185,8 @@ export default function HomePage() {
   const liveInFlight = useRef(false);
   const livePending = useRef(""); // live text not yet checked (cooldown / in flight)
   const recognitionRef = useRef<unknown>(null);
+  const dictationWatch = useRef<{ heard: () => void; cancel: () => void } | null>(null);
+  const liveWatch = useRef<{ heard: () => void; cancel: () => void } | null>(null);
   // Resolves to the real project id once /api/projects has loaded, so work
   // started before that (e.g. an upload right after a ?project= page load)
   // never posts the placeholder id.
@@ -326,7 +328,15 @@ export default function HomePage() {
     rec.interimResults = true;
     rec.lang = "en-IN";
     let buffer: string[] = [];
+    const audio = watchForAudio(() =>
+      setLiveStatus(`${NO_MIC_INPUT} Or use Play demo clip.`)
+    );
+    liveWatch.current = audio;
+    const recEvents = rec as unknown as Record<string, (() => void) | null>;
+    recEvents.onsoundstart = audio.heard;
+    recEvents.onspeechstart = audio.heard;
     rec.onresult = (e: unknown) => {
+      audio.heard();
       const ev = e as {
         resultIndex: number;
         results: ArrayLike<{ 0: { transcript: string }; isFinal: boolean }>;
@@ -353,9 +363,16 @@ export default function HomePage() {
     rec.onerror = (e?: unknown) => {
       const code = (e as { error?: string } | undefined)?.error;
       if (code === "no-speech" || code === "aborted") return;
+      audio.cancel();
       setLiveStatus(`${micErrorText(code)} You can still use Play demo clip.`);
     };
-    rec.start();
+    try {
+      rec.start();
+    } catch {
+      audio.cancel();
+      setLiveStatus(`${micErrorText()} You can still use Play demo clip.`);
+      return;
+    }
     recognitionRef.current = rec;
     setListening(true);
     setLiveStatus("Listening… speak near the mic.");
@@ -369,6 +386,7 @@ export default function HomePage() {
   }
 
   function stopListening() {
+    liveWatch.current?.cancel();
     const rec = recognitionRef.current as { stop?: () => void; _flush?: number } | null;
     if (rec?.stop) rec.stop();
     if (rec?._flush) clearInterval(rec._flush);
@@ -465,7 +483,21 @@ export default function HomePage() {
     rec.continuous = true;
     rec.interimResults = false;
     rec.lang = "en-IN";
+    const audio = watchForAudio(() => {
+      try {
+        rec.stop();
+      } catch {
+        // already stopped
+      }
+      setMicOn(false);
+      setErrorMsg(NO_MIC_INPUT);
+    });
+    dictationWatch.current = audio;
+    const recEvents = rec as unknown as Record<string, (() => void) | null>;
+    recEvents.onsoundstart = audio.heard;
+    recEvents.onspeechstart = audio.heard;
     rec.onresult = (e: unknown) => {
+      audio.heard();
       const ev = e as {
         resultIndex: number;
         results: ArrayLike<{ 0: { transcript: string }; isFinal: boolean }>;
@@ -476,17 +508,30 @@ export default function HomePage() {
       }
       if (finalText.trim()) setRawInput((prev) => (prev ? prev + " " : "") + finalText.trim());
     };
-    rec.onend = () => setMicOn(false);
-    rec.onerror = (e?: unknown) => {
+    rec.onend = () => {
+      audio.cancel();
       setMicOn(false);
-      setErrorMsg(micErrorText((e as { error?: string } | undefined)?.error));
     };
-    rec.start();
+    rec.onerror = (e?: unknown) => {
+      audio.cancel();
+      setMicOn(false);
+      const code = (e as { error?: string } | undefined)?.error;
+      if (code === "aborted") return;
+      setErrorMsg(code === "no-speech" ? NO_MIC_INPUT : micErrorText(code));
+    };
+    try {
+      rec.start();
+    } catch {
+      audio.cancel();
+      setErrorMsg(micErrorText());
+      return;
+    }
     dictationRef.current = rec;
     setActiveTab("debrief");
     setMicOn(true);
   }
   function stopDictation() {
+    dictationWatch.current?.cancel();
     const rec = dictationRef.current as { stop?: () => void } | null;
     if (rec?.stop) rec.stop();
     setMicOn(false);
@@ -1562,6 +1607,63 @@ async function hasMicrophone(): Promise<boolean> {
   } catch {
     return true;
   }
+}
+
+const NO_MIC_INPUT =
+  "No microphone input detected. Check your mic (or allow mic access), or dictate with Wispr Flow and paste the text here.";
+const SILENCE_MS = 5000;
+
+/**
+ * Watch for real audio for SILENCE_MS. Calls onSilent if neither the mic level
+ * nor the recognizer ever showed sound (a virtual/default device that passes
+ * enumerateDevices but delivers nothing). Returns { heard, cancel }.
+ */
+function watchForAudio(onSilent: () => void): { heard: () => void; cancel: () => void } {
+  let done = false;
+  let stream: MediaStream | null = null;
+  let ctx: AudioContext | null = null;
+  let raf = 0;
+  const cleanup = () => {
+    done = true;
+    clearTimeout(timer);
+    if (raf) cancelAnimationFrame(raf);
+    stream?.getTracks().forEach((t) => t.stop());
+    ctx?.close().catch(() => {});
+  };
+  const heard = () => {
+    if (!done) cleanup();
+  };
+  const timer = setTimeout(() => {
+    if (done) return;
+    cleanup();
+    onSilent();
+  }, SILENCE_MS);
+  (async () => {
+    try {
+      if (!navigator.mediaDevices?.getUserMedia) return;
+      stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      if (done) return cleanup();
+      const AC = window.AudioContext || (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
+      if (!AC) return;
+      ctx = new AC();
+      const analyser = ctx.createAnalyser();
+      analyser.fftSize = 512;
+      ctx.createMediaStreamSource(stream).connect(analyser);
+      const buf = new Float32Array(analyser.fftSize);
+      const tick = () => {
+        if (done) return;
+        analyser.getFloatTimeDomainData(buf);
+        let sum = 0;
+        for (let i = 0; i < buf.length; i++) sum += buf[i] * buf[i];
+        if (Math.sqrt(sum / buf.length) > 0.01) return heard();
+        raf = requestAnimationFrame(tick);
+      };
+      tick();
+    } catch {
+      // getUserMedia refused: the recognizer's own error handler reports it.
+    }
+  })();
+  return { heard, cancel: cleanup };
 }
 
 function micErrorText(code?: string): string {
