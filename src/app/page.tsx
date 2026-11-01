@@ -526,7 +526,7 @@ export default function HomePage() {
     setVerification(null);
     setVerdicts({});
 
-    const formatted = formatSpokenTokens(rawInput);
+    const formatted = formatSpokenTokens(input);
     setTokens(formatted);
 
     try {
@@ -534,9 +534,8 @@ export default function HomePage() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          rawText: rawInput,
+          rawText: input,
           sourceType: activeTab === "debrief" ? "debrief" : undefined,
-          userName: "Akash",
           projectId: selectedProjectId,
         }),
       });
