@@ -130,6 +130,19 @@ export default function LedgerPage() {
         body: JSON.stringify({ name, email: newMemberEmail.trim(), projectId }),
       });
       d = await r.json().catch(() => ({ error: `Could not add member (HTTP ${r.status})` }));
+      if (
+        r.status === 409 &&
+        newMemberEmail.trim() &&
+        String(d.error || "").endsWith("is already on the team.") &&
+        window.confirm(`${d.error} Update their email to ${newMemberEmail.trim()}?`)
+      ) {
+        const r2 = await fetch("/api/people", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ name, email: newMemberEmail.trim(), projectId, update: true }),
+        });
+        d = await r2.json().catch(() => ({ error: `Could not update member (HTTP ${r2.status})` }));
+      }
     } catch {
       d = { error: "Could not reach the server. Try again." };
     }
