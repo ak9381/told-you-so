@@ -185,6 +185,15 @@ export default function HomePage() {
   const liveInFlight = useRef(false);
   const livePending = useRef(""); // live text not yet checked (cooldown / in flight)
   const recognitionRef = useRef<unknown>(null);
+  // Resolves to the real project id once /api/projects has loaded, so work
+  // started before that (e.g. an upload right after a ?project= page load)
+  // never posts the placeholder id.
+  const projectsReady = useRef<Promise<string | null> | null>(null);
+  async function resolveProjectId(): Promise<string> {
+    if (selectedProjectId && !selectedProjectId.startsWith("proj-")) return selectedProjectId;
+    const id = projectsReady.current ? await projectsReady.current : null;
+    return id ?? selectedProjectId;
+  }
 
   const liveOpen =
     meetingLink.trim().length > 0 || listening || liveLines.length > 0 || liveCards.length > 0;
@@ -538,6 +547,7 @@ export default function HomePage() {
         return null;
       })
       .finally(() => setProjectsLoaded(true));
+    projectsReady.current = projectsPromise;
 
     Promise.all([projectsPromise, timelinePromise]).then(([resolvedId]) => {
       if (resolvedId && !initialPid && !resolvedId.startsWith("proj-")) {
@@ -599,13 +609,14 @@ export default function HomePage() {
     setTokens(formatted);
 
     try {
+      const projectId = await resolveProjectId();
       const res = await fetch("/api/ingest", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           rawText: input,
           sourceType: activeTab === "debrief" ? "debrief" : undefined,
-          projectId: selectedProjectId,
+          projectId,
         }),
       });
 
@@ -656,7 +667,8 @@ export default function HomePage() {
 
   async function handleConfirm() {
     if (!result || committed) return;
-    if (!selectedProjectId || selectedProjectId.startsWith("proj-")) {
+    const projectId = await resolveProjectId();
+    if (!projectId || projectId.startsWith("proj-")) {
       setCommittedStatus("Not recorded — pick or create a project first (top left).");
       return;
     }
@@ -692,7 +704,7 @@ export default function HomePage() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          projectId: selectedProjectId,
+          projectId,
           meetingTitle: meetingTitleToUse,
           meetingDate,
           sourceType: sourceLabel,
@@ -711,7 +723,7 @@ export default function HomePage() {
         setCommittedStatus(
           `Confirmed ✓ — ${n} item${n === 1 ? "" : "s"} saved to this project's memory${warn.length ? `. Note: ${warn.join(" ")}` : ""}`
         );
-        loadTimeline(selectedProjectId, true); // show the new history without a reload
+        loadTimeline(projectId, true); // show the new history without a reload
       } else {
         const body = await res.json().catch(() => ({}));
         setCommittedStatus(`Not recorded — ${body.error || "commit failed"}`);
