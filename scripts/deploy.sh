@@ -14,7 +14,7 @@ npx wrangler deploy
 echo "==> Setting Worker secrets from .dev.vars (values never printed)..."
 set -a; . ./.dev.vars; set +a
 for NAME in \
-  GEMINI_API_KEY GEMINI_DAILY_CAP \
+  GEMINI_API_KEY GEMINI_DAILY_CAP GEMINI_CAP_OVERRIDES \
   SUPABASE_URL SUPABASE_ANON_KEY SUPABASE_SERVICE_ROLE_KEY \
   ALLOWED_EMAILS CRON_SECRET \
   NOTION_TOKEN NOTION_DATABASE_ID \
