@@ -1198,7 +1198,7 @@ export default function HomePage() {
                   ))}
                 </div>
                 {liveLines.length === 0 && (
-                  <p className="text-[#9B9690]">Nothing yet — start listening or play the demo clip. Tap who&rsquo;s speaking; &ldquo;Rohan here&rdquo; also switches it. Click a name on a line to change it.</p>
+                  <p className="text-[#9B9690]">Nothing yet — start listening or play the demo clip. Tap who&rsquo;s speaking; &ldquo;Neerja here&rdquo; also switches it. Click a name on a line to change it.</p>
                 )}
                 {liveLines.map((l) => (
                   <div key={l.id} className="flex items-start gap-2.5">

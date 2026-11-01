@@ -103,7 +103,7 @@ async function seed() {
     { name: "Harsh", email: "akash+harsh@gmail.com" },
     { name: "Client", email: "akash+client@gmail.com" },
     { name: "Priya", email: "akash+priya@gmail.com" },
-    { name: "Rohan", email: "akash+rohan@gmail.com" },
+    { name: "Neerja", email: "akash+neerja@gmail.com" },
   ];
 
   for (const p of people) {
