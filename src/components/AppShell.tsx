@@ -27,6 +27,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
   const [creating, setCreating] = useState(false);
   const [newName, setNewName] = useState("");
   const [createMsg, setCreateMsg] = useState("");
+  const [busy, setBusy] = useState(false);
   const pathname = usePathname();
 
   useEffect(() => {
@@ -81,8 +82,9 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
 
   async function createProject() {
     const name = newName.trim();
-    if (!name) return;
+    if (!name || busy) return;
     setCreateMsg("");
+    setBusy(true);
     try {
       const r = await fetch("/api/projects", {
         method: "POST",
@@ -92,9 +94,16 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
       const d = await r.json();
       if (!r.ok || !d.project) {
         setCreateMsg(d.error || "Could not create the project");
+        setBusy(false);
         return;
       }
       invalidateProjectsCache();
+      // Switch the sidebar right away; the page reload below follows.
+      setProjects((prev) => [{ id: d.project.id, name: d.project.name ?? name }, ...prev.filter((p) => p.id !== d.project.id)]);
+      setActiveProject(d.project.id);
+      setOpen(false);
+      setCreating(false);
+      setNewName("");
       try {
         localStorage.setItem("tys_project", d.project.id);
       } catch {
@@ -103,6 +112,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
       window.location.href = `/?project=${d.project.id}`;
     } catch {
       setCreateMsg("Could not create the project");
+      setBusy(false);
     }
   }
 
@@ -131,7 +141,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
             >
               <span className="truncate flex items-center gap-2">
                 <span className="text-[#9B9690]">▪</span>
-                {currentProjectName}
+                {currentProjectName}{busy ? " · opening…" : ""}
               </span>
               <span className="text-[#9B9690] text-xs">▾</span>
             </button>
@@ -186,10 +196,11 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
                         />
                         <button
                           onClick={createProject}
-                          disabled={!newName.trim()}
+                          disabled={!newName.trim() || busy}
+                          aria-busy={busy}
                           className="shrink-0 rounded-lg bg-[#1C1C1E] text-white px-3 py-1.5 text-xs font-medium hover:bg-[#333338] disabled:opacity-50 transition-colors"
                         >
-                          Add
+                          {busy ? "Creating…" : "Add"}
                         </button>
                       </div>
                     )}
