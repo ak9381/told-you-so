@@ -57,39 +57,48 @@ export async function POST(request: NextRequest) {
       return jsonError("Project not found.", 404);
     }
 
-    // 1. Get next seq for project
-    const { data: latestMeeting } = await supabase
-      .from("meetings")
-      .select("seq")
-      .eq("project_id", projectId)
-      .order("seq", { ascending: false })
-      .limit(1)
-      .maybeSingle();
-
-    const nextSeq = (latestMeeting?.seq || 0) + 1;
-
-    // 2. Insert Meeting
-    const { data: meeting, error: meetingErr } = await supabase
-      .from("meetings")
-      .insert({
-        project_id: projectId,
-        user_id: userId,
-        seq: nextSeq,
-        title: meetingTitle.slice(0, 200),
-        meeting_date:
-          typeof meetingDate === "string" && /^\d{4}-\d{2}-\d{2}$/.test(meetingDate) && !isNaN(Date.parse(meetingDate))
-            ? meetingDate
-            : new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Kolkata" }),
-        source_type: sourceType || "debrief",
-        raw_text: rawText,
-      })
-      .select("id")
-      .single();
+    // 1+2. Insert the meeting with the next seq. meetings(project_id, seq) is
+    // UNIQUE, so two concurrent saves can collide: retry with a fresh seq.
+    const meetingDateValue =
+      typeof meetingDate === "string" && /^\d{4}-\d{2}-\d{2}$/.test(meetingDate) && !isNaN(Date.parse(meetingDate))
+        ? meetingDate
+        : new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Kolkata" });
+    let nextSeq = 0;
+    let meeting: { id: string } | null = null;
+    let meetingErr: { code?: string; message: string } | null = null;
+    for (let attempt = 0; attempt < 5; attempt++) {
+      const { data: latestMeeting } = await supabase
+        .from("meetings")
+        .select("seq")
+        .eq("project_id", projectId)
+        .order("seq", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      nextSeq = (latestMeeting?.seq || 0) + 1;
+      const ins = await supabase
+        .from("meetings")
+        .insert({
+          project_id: projectId,
+          user_id: userId,
+          seq: nextSeq,
+          title: meetingTitle.slice(0, 200),
+          meeting_date: meetingDateValue,
+          source_type: sourceType || "debrief",
+          raw_text: rawText,
+        })
+        .select("id")
+        .single();
+      meeting = ins.data;
+      meetingErr = ins.error;
+      if (!meetingErr || meetingErr.code !== "23505") break; // only retry seq collisions
+    }
 
     if (meetingErr || !meeting) {
       log.error("Meeting insert failed:", meetingErr);
       return NextResponse.json({ error: "Failed to create meeting" }, { status: 500 });
     }
+
+    const warnings: string[] = []; // partial failures the user should know about
 
     // 3. Insert Utterances
     if (utterances && Array.isArray(utterances) && utterances.length > 0) {
@@ -101,7 +110,10 @@ export async function POST(request: NextRequest) {
         seq: idx + 1,
       }));
       const { error: uErr } = await supabase.from("utterances").insert(utteranceRows);
-      if (uErr) log.error("utterances insert failed:", uErr.message);
+      if (uErr) {
+        log.error("utterances insert failed:", uErr.message);
+        warnings.push("The transcript lines couldn't be saved (decisions and tasks were).");
+      }
     }
 
     // 4. Insert Decisions (capture ids so objection verdicts can supersede)
@@ -124,7 +136,10 @@ export async function POST(request: NextRequest) {
         .select("id, exact_quote");
       if (dErr) {
         log.error("decisions insert failed:", dErr.message);
-        return jsonError("Saved the meeting but could not save its decisions. Please try again.", 500);
+        // Roll back the just-created meeting so a retry doesn't leave an empty duplicate.
+        await supabase.from("utterances").delete().eq("meeting_id", meeting.id);
+        await supabase.from("meetings").delete().eq("id", meeting.id);
+        return jsonError("Could not save the decisions. Nothing was recorded — please try again.", 500);
       }
       insertedDecisions = inserted ?? [];
       for (const row of insertedDecisions) {
@@ -155,7 +170,7 @@ export async function POST(request: NextRequest) {
           .maybeSingle();
         if (!oldRow) continue;
 
-        await supabase.from("objections").insert({
+        const { error: oErr } = await supabase.from("objections").insert({
           project_id: projectId,
           old_decision_id: ov.oldDecisionId,
           new_decision_id: newDecisionId,
@@ -165,6 +180,11 @@ export async function POST(request: NextRequest) {
           new_speaker: ov.newSpeaker ?? null,
           verdict: ov.verdict,
         });
+        if (oErr) {
+          log.error("objection insert failed:", oErr.message);
+          warnings.push("One objection verdict couldn't be saved.");
+          continue;
+        }
 
         if (ov.verdict === "overrule" || ov.verdict === "pivot") {
           // the new decision wins; the old one is struck through
@@ -213,10 +233,14 @@ export async function POST(request: NextRequest) {
         .from("actions")
         .insert(actionRows)
         .select("id, title, owner, due_date, source_quote");
-      if (aErr) log.error("actions insert failed:", aErr.message);
+      if (aErr) {
+        log.error("actions insert failed:", aErr.message);
+        warnings.push("The tasks couldn't be saved — add them again from this transcript.");
+      }
 
-      // Best-effort: file each action in Notion; never block the ledger.
-      for (const act of insertedActions ?? []) {
+      // Best-effort: file the actions in Notion in parallel; never block the ledger.
+      let notionFailed = 0;
+      await Promise.all((insertedActions ?? []).map(async (act) => {
         const result = await createTask({
           title: act.title,
           owner: act.owner,
@@ -235,13 +259,15 @@ export async function POST(request: NextRequest) {
             status: "filed",
           });
         } else {
+          notionFailed += 1;
           await supabase.from("notion_log").insert({
             action_id: act.id,
             status: "failed",
             error: result.error,
           });
         }
-      }
+      }));
+      if (notionFailed) warnings.push(`${notionFailed} task(s) couldn't be filed to Notion (saved here).`);
     }
 
     await logActivity({
@@ -257,6 +283,7 @@ export async function POST(request: NextRequest) {
       meetingId: meeting.id,
       meetingSeq: nextSeq,
       title: meetingTitle,
+      warnings,
     });
   } catch (error) {
     log.error("Commit error:", error);

@@ -655,9 +655,11 @@ export default function HomePage() {
 
       if (res.ok) {
         const n = selectedDecisions.length + selectedActions.length;
+        const body = await res.json().catch(() => ({}));
+        const warn: string[] = Array.isArray(body.warnings) ? body.warnings : [];
         setCommitted(true);
         setCommittedStatus(
-          `Confirmed ✓ — ${n} item${n === 1 ? "" : "s"} saved to this project's memory`
+          `Confirmed ✓ — ${n} item${n === 1 ? "" : "s"} saved to this project's memory${warn.length ? `. Note: ${warn.join(" ")}` : ""}`
         );
         loadTimeline(selectedProjectId);
       } else {
