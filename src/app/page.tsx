@@ -211,13 +211,17 @@ export default function HomePage() {
     const lower = file.name.toLowerCase();
     const reader = new FileReader();
     reader.onload = () => {
+      const text = String(reader.result || "");
       setActiveTab("paste");
-      setRawInput(String(reader.result || ""));
+      setRawInput(text);
       setMeetingName((n) => n || base);
       if (lower.includes("whatsapp")) setUploadType("whatsapp");
       else if (lower.includes("slack")) setUploadType("slack");
       else if (lower.includes("transcript")) setUploadType("transcript");
+      // Make the next step obvious: process the upload straight away.
+      if (text.trim()) void handleExtract(text);
     };
+    e.target.value = ""; // allow re-uploading the same file
     reader.readAsText(file);
   }
 
