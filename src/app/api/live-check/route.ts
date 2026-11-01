@@ -5,12 +5,13 @@ import { requireUser, readJson, canAccessProject } from "@/lib/api-guard";
 import { createServerClient } from "@/lib/supabase";
 import { getProjectMemory } from "@/lib/agent";
 import { checkAndIncrementUsage } from "@/lib/usage";
+import { citeFromMemory } from "@/lib/live-enrich";
 
 const GEMINI_MODEL = "gemini-3.5-flash-lite";
 
 // Cheap gate: only call Gemini when a chunk actually looks decision-like.
 const DECISION_GATE =
-  /\b(deadline|due|team|submit|submission|video|deploy|launch|must|let'?s|decide|decided|budget|price|pricing|scope|member|people|minute|min|hour|tonight|tomorrow|monday|tuesday|wednesday|thursday|friday|by\s+\d|\d+\s*(pm|am|min|minutes|members|people)|postgres|mongo|database|\bdb\b|polling|webhook|auth|clerk|jwt|switch|instead|go with|why are we)/i;
+  /\b(deadline|due|team|submit|submission|video|deploy|launch|must|let'?s|decide|decided|budget|price|pricing|scope|member|people|minute|min|hour|tonight|tomorrow|monday|tuesday|wednesday|thursday|friday|by\s+\d|\d+\s*(pm|am|min|minutes|members|people)|postgres|mongo|database|\bdb\b|polling|webhook|auth|clerk|jwt|switch|instead|go with|why are we|host|hosting|vercel|cloudflare|free tier|tier|calendar|seat|annual|beta)/i;
 
 export interface LiveResult {
   quote: string;
@@ -20,6 +21,8 @@ export interface LiveResult {
   old_speaker?: string;
   speaker?: string;
   old_meeting_seq?: number;
+  old_meeting_title?: string | null;
+  old_meeting_date?: string | null;
   reasoning?: string;
 }
 
@@ -108,7 +111,9 @@ Return ONLY JSON: {"results":[{"quote":"exact words from the new lines (without 
     } catch {
       return NextResponse.json({ skipped: true, reason: "bad_ai_json", results: [] });
     }
-    const results: LiveResult[] = Array.isArray(out.results) ? (out.results as LiveResult[]) : [];
+    const results: LiveResult[] = (Array.isArray(out.results) ? (out.results as LiveResult[]) : []).map((r) =>
+      citeFromMemory(r, memory)
+    );
 
     return NextResponse.json({ skipped: false, results });
   } catch (e) {

@@ -80,6 +80,8 @@ interface LiveCard {
   old_speaker?: string;
   speaker?: string;
   old_meeting_seq?: number;
+  old_meeting_title?: string | null;
+  old_meeting_date?: string | null;
   reasoning?: string;
   ts: string;
 }
@@ -1252,7 +1254,9 @@ export default function HomePage() {
                             <span className="uppercase text-[10px] font-semibold tracking-wider">Then</span>{" "}
                             — &ldquo;{c.old_quote}&rdquo;
                             {c.old_speaker ? ` — ${c.old_speaker}` : ""}
-                            {c.old_meeting_seq ? ` · Meeting #${c.old_meeting_seq}` : ""}
+                            {c.old_meeting_seq || c.old_meeting_title || c.old_meeting_date
+                              ? ` · ${meetingLabel(c.old_meeting_seq, c.old_meeting_title, c.old_meeting_date)}`
+                              : ""}
                           </div>
                           <div className="text-[#1A1715]">
                             <span className="uppercase text-[10px] font-semibold tracking-wider text-[#C0392B]">
