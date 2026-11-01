@@ -4,6 +4,7 @@ import { formatIst, describeDue, parseMeetingDate } from "@/lib/dates";
 import { decisionBadge } from "@/lib/decision-status";
 import { meetingLabel } from "@/lib/meeting-label";
 import { DEMO_CLIPS, clipTranscript } from "@/lib/demo-clips";
+import { detectSelfIntro, speakerForQuote, isKnownSpeaker } from "@/lib/speakers";
 import { useState, useEffect, useRef, useCallback } from "react";
 import AppShell from "@/components/AppShell";
 import { fetchProjectsClient } from "@/lib/client-cache";
@@ -77,6 +78,7 @@ interface LiveCard {
   topic: string;
   old_quote?: string;
   old_speaker?: string;
+  speaker?: string;
   old_meeting_seq?: number;
   reasoning?: string;
   ts: string;
@@ -179,6 +181,19 @@ export default function HomePage() {
   const [liveLines, setLiveLines] = useState<LiveLine[]>([]);
   const [liveCards, setLiveCards] = useState<LiveCard[]>([]);
   const [lastSpeaker, setLastSpeaker] = useState("Speaker ?");
+  // Speaker attribution: team chips set who is talking; new lines get that name.
+  const [team, setTeam] = useState<string[]>([]);
+  const [activeSpeaker, setActiveSpeakerState] = useState("You");
+  const activeSpeakerRef = useRef("You");
+  const teamRef = useRef<string[]>([]);
+  const liveLinesRef = useRef<LiveLine[]>([]);
+  function setActiveSpeaker(name: string) {
+    activeSpeakerRef.current = name;
+    setActiveSpeakerState(name);
+  }
+  useEffect(() => {
+    liveLinesRef.current = liveLines;
+  }, [liveLines]);
   const [liveStatus, setLiveStatus] = useState("");
   const [speechSupported, setSpeechSupported] = useState(true);
   const [linkError, setLinkError] = useState("");
@@ -290,7 +305,12 @@ export default function HomePage() {
         });
         const data = await res.json();
         if (data.results?.length) {
-          const stamped: LiveCard[] = data.results.map((r: LiveCard) => ({ ...r, ts: mmss() }));
+          const stamped: LiveCard[] = data.results.map((r: LiveCard) => ({
+            ...r,
+            // Cite who said it: the checker's answer, else the live line it came from.
+            speaker: isKnownSpeaker(r.speaker) ? r.speaker : speakerForQuote(r.quote, liveLinesRef.current) ?? undefined,
+            ts: mmss(),
+          }));
           setLiveCards((prev) => [...stamped, ...prev]);
         }
         if (data.skipped && data.reason === "live_check_cooldown" && !demo) {
@@ -358,8 +378,11 @@ export default function HomePage() {
         if (r.isFinal) {
           const t = r[0].transcript.trim();
           if (t) {
-            addLiveLine("Speaker ?", t);
-            buffer.push(t);
+            const intro = detectSelfIntro(t, teamRef.current);
+            if (intro) setActiveSpeaker(intro);
+            const who = intro ?? activeSpeakerRef.current;
+            addLiveLine(who, t);
+            buffer.push(isKnownSpeaker(who) ? `${who}: ${t}` : t);
             if (buffer.length >= 2) {
               sendForCheck(buffer.join(" "));
               buffer = [];
@@ -410,12 +433,14 @@ export default function HomePage() {
     stopListening();
     liveStartRef.current = Date.now();
     setLiveLines([]);
+    liveLinesRef.current = [];
     setLiveCards([]);
     setLiveStatus("Playing demo clip…");
     const clip = DEMO_CLIPS[currentProjectName] ?? DEFAULT_CLIP;
     for (const line of clip) {
       addLiveLine(line.speaker, line.text);
-      await sendForCheck(line.text, true);
+      liveLinesRef.current = [...liveLinesRef.current, { id: -1, speaker: line.speaker, text: line.text, ts: "" }];
+      await sendForCheck(`${line.speaker}: ${line.text}`, true);
       await new Promise((r) => setTimeout(r, 1200));
     }
     setLiveStatus("Demo clip finished.");
@@ -456,6 +481,20 @@ export default function HomePage() {
       // storage/URL/scroll unavailable (e.g. private mode) — safe to use defaults
     }
   }
+
+  // Team for the speaker chips (project members, plus "You").
+  useEffect(() => {
+    if (!selectedProjectId || selectedProjectId.startsWith("proj-")) return;
+    fetch(`/api/people?projectId=${selectedProjectId}`)
+      .then((r) => (r.ok ? r.json() : { people: [] }))
+      .then((d) => {
+        const names: string[] = (d.people ?? []).map((p: { name: string }) => p.name).filter(Boolean);
+        const list = ["You", ...names.filter((n) => n !== "You")];
+        teamRef.current = list;
+        setTeam(list);
+      })
+      .catch(() => {});
+  }, [selectedProjectId]);
 
   function tagSpeaker(id: number, name: string) {
     if (!name) return;
@@ -1127,14 +1166,34 @@ export default function HomePage() {
             <div className="rounded-xl border border-[#E7E5E0] bg-white/50 p-5">
               <h4 className="font-serif text-lg text-[#1A1715] mb-3">Live transcript</h4>
               <div className="space-y-2.5 text-sm max-h-[360px] overflow-y-auto">
+                <div className="flex flex-wrap items-center gap-1.5 mb-2" role="group" aria-label="Who is speaking">
+                  <span className="text-xs text-[#9B9690] mr-1">Speaking:</span>
+                  {(team.length ? team : ["You"]).map((n) => (
+                    <button
+                      key={n}
+                      type="button"
+                      onClick={() => setActiveSpeaker(n)}
+                      aria-pressed={activeSpeaker === n}
+                      className={`rounded-full px-2.5 py-0.5 text-xs border transition-colors ${
+                        activeSpeaker === n
+                          ? "bg-[#1C1C1E] text-white border-[#1C1C1E]"
+                          : "bg-white text-[#6B6560] border-[#E0DED8] hover:border-[#9B9690]"
+                      }`}
+                    >
+                      {n}
+                    </button>
+                  ))}
+                </div>
                 {liveLines.length === 0 && (
-                  <p className="text-[#9B9690]">Nothing yet — start listening or play the demo clip.</p>
+                  <p className="text-[#9B9690]">Nothing yet — start listening or play the demo clip. Tap who&rsquo;s speaking; &ldquo;Rohan here&rdquo; also switches it. Click a name on a line to change it.</p>
                 )}
                 {liveLines.map((l) => (
                   <div key={l.id} className="flex items-start gap-2.5">
                     <span className="text-[#9B9690] shrink-0 tabular-nums text-xs pt-0.5">{l.ts}</span>
                     <input
                       aria-label="Speaker name"
+                      list="live-team"
+                      title="Click to change who said this"
                       value={l.speaker}
                       onChange={(e) => tagSpeaker(l.id, e.target.value)}
                       onFocus={(e) => {
@@ -1150,6 +1209,11 @@ export default function HomePage() {
                     <span className="text-[#1A1715]">{l.text}</span>
                   </div>
                 ))}
+                <datalist id="live-team">
+                  {team.map((n) => (
+                    <option key={n} value={n} />
+                  ))}
+                </datalist>
                 {interim && (
                   <div className="flex items-start gap-2.5 opacity-50">
                     <span className="text-[#9B9690] shrink-0 text-xs pt-0.5">…</span>
@@ -1190,6 +1254,7 @@ export default function HomePage() {
                               Now
                             </span>{" "}
                             — &ldquo;{c.quote}&rdquo;
+                            {c.speaker ? <span className="font-medium"> — {c.speaker}</span> : null}
                           </div>
                         </div>
                       </div>

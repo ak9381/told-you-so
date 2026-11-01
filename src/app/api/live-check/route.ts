@@ -18,6 +18,7 @@ export interface LiveResult {
   verdict: "contradicts" | "refines" | "new";
   old_quote?: string;
   old_speaker?: string;
+  speaker?: string;
   old_meeting_seq?: number;
   reasoning?: string;
 }
@@ -72,7 +73,7 @@ export async function POST(request: NextRequest) {
 PRIOR agreed decisions (project memory):
 ${memList}
 
-NEW lines just spoken in the meeting:
+NEW lines just spoken in the meeting (lines may start with "Name:" — that is who said it):
 """
 ${newText}
 """
@@ -83,7 +84,7 @@ For each decision-like statement in the NEW lines, classify it against the MOST 
 - "new": a decision on something with no prior decision — INCLUDING assigning an owner or a task's own due time (e.g. "Priya owns the video, due 10:30 tonight"). A task's internal due time is NOT a contradiction of the overall submission deadline unless it is clearly AFTER that deadline.
 Ignore small talk and lines with no decision. Be conservative: only mark "contradicts" when the conflict is clear.
 
-Return ONLY JSON: {"results":[{"quote":"exact words from the new lines","topic":"one topic key","verdict":"contradicts|refines|new","old_quote":"the prior decision's quote if contradicts/refines else empty","old_speaker":"","old_meeting_seq":0,"reasoning":"one short sentence"}]}`;
+Return ONLY JSON: {"results":[{"quote":"exact words from the new lines (without the Name: prefix)","speaker":"who said it, from the line's Name: prefix, else empty","topic":"one topic key","verdict":"contradicts|refines|new","old_quote":"the prior decision's quote if contradicts/refines else empty","old_speaker":"who said the prior decision (from project memory)","old_meeting_seq":0,"reasoning":"one short sentence"}]}`;
 
     const res = await fetchWithRetry(
       `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent`,
