@@ -2,6 +2,7 @@
 
 import { formatIst } from "@/lib/dates";
 import { decisionBadge } from "@/lib/decision-status";
+import { meetingLabel } from "@/lib/meeting-label";
 import { DEMO_CLIPS, clipTranscript } from "@/lib/demo-clips";
 import { useState, useEffect, useRef, useCallback } from "react";
 import AppShell from "@/components/AppShell";
@@ -42,6 +43,7 @@ interface TimelineDecision {
   status: string;
   superseded_by?: string | null;
   meeting_date?: string | null;
+  meeting_title?: string | null;
 }
 
 function groupByTopic(decisions: TimelineDecision[]) {
@@ -1253,7 +1255,7 @@ export default function HomePage() {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
             <div className="border-l-2 border-[#E0DED8] pl-3">
               <div className="text-[11px] uppercase text-[#9B9690] mb-1">
-                Then — Meeting #{obj.old.meeting_seq}
+                Then — {meetingLabel(obj.old.meeting_seq, obj.old.meetingTitle, obj.old.decidedAt)}
                 {obj.old.said_at ? ` · ${offsetLabel(obj.old.said_at)}` : ""}
               </div>
               <blockquote className="italic text-[#6B6560]">&ldquo;{obj.old.quote}&rdquo;</blockquote>
@@ -1479,8 +1481,7 @@ export default function HomePage() {
                         <span className={`flex-1 ${struck ? "line-through text-[#B9B6AE]" : "text-[#1A1715]"}`}>
                           &ldquo;{d.exact_quote}&rdquo;{" "}
                           <span className="text-[#9B9690]">
-                            — {d.speaker} · Meeting #{d.meeting_seq}
-                            {d.meeting_date ? ` (${shortDate(d.meeting_date)})` : ""}
+                            — {d.speaker} · {meetingLabel(d.meeting_seq, d.meeting_title, d.meeting_date)}
                             {d.said_at ? ` · ${offsetLabel(d.said_at)}` : ""}
                           </span>{" "}
                           <span
@@ -1563,7 +1564,8 @@ function VerifyChip({ verification, kind, index }: { verification: Verification 
       </span>
     );
   }
-  const pct = Math.round(c.confidence * 100);
+  // Bucket to 10% steps so two identical runs don't show 87% vs 91%.
+  const pct = Math.min(100, Math.round(c.confidence * 10) * 10);
   const low = c.confidence < LOW_CONFIDENCE;
   return (
     <span

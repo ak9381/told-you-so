@@ -18,7 +18,7 @@ export async function GET(request: NextRequest) {
   }
   const { data, error } = await supabase
     .from("decisions")
-    .select("id, topic, exact_quote, speaker, said_at, meeting_seq, status, superseded_by, meeting:meetings(meeting_date)")
+    .select("id, topic, exact_quote, speaker, said_at, meeting_seq, status, superseded_by, meeting:meetings(meeting_date, title)")
     .eq("project_id", projectId)
     .order("topic", { ascending: true })
     .order("meeting_seq", { ascending: false })
@@ -32,7 +32,8 @@ export async function GET(request: NextRequest) {
     const m = Array.isArray(d.meeting) ? d.meeting[0] : d.meeting;
     const { meeting: _m, ...rest } = d;
     void _m;
-    return { ...rest, meeting_date: (m as { meeting_date?: string | null } | null)?.meeting_date ?? null };
+    const mm = m as { meeting_date?: string | null; title?: string | null } | null;
+    return { ...rest, meeting_date: mm?.meeting_date ?? null, meeting_title: mm?.title ?? null };
   });
   return NextResponse.json({ decisions });
 }

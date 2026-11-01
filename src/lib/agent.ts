@@ -28,16 +28,18 @@ export interface MemoryDecision {
   meeting_seq: number;
   created_at?: string;
   meeting_date?: string | null; // real meeting date (migration 005)
+  meeting_title?: string | null;
 }
 
 // Supabase embeds a to-one relation as an object or 1-element array.
 function withMeetingDate(rows: unknown[] | null): MemoryDecision[] {
   return (rows ?? []).map((r) => {
-    const row = r as MemoryDecision & { meeting?: { meeting_date?: string | null } | { meeting_date?: string | null }[] };
+    type M = { meeting_date?: string | null; title?: string | null };
+    const row = r as MemoryDecision & { meeting?: M | M[] };
     const m = Array.isArray(row.meeting) ? row.meeting[0] : row.meeting;
     const { meeting: _m, ...rest } = row;
     void _m;
-    return { ...rest, meeting_date: m?.meeting_date ?? null };
+    return { ...rest, meeting_date: m?.meeting_date ?? null, meeting_title: m?.title ?? null };
   });
 }
 
@@ -58,6 +60,7 @@ export interface Objection {
     meeting_seq: number;
     said_at: string | null;
     decidedAt?: string | null; // the date the old decision was made (#3)
+    meetingTitle?: string | null;
   };
   // itemIndex = position of the new decision in the extraction (B3: stable id
   // so commit never maps a verdict by quote text).
@@ -99,7 +102,7 @@ async function searchMemory(
   const supabase = createServerClient();
   const { data, error } = await supabase
     .from("decisions")
-    .select("id, topic, exact_quote, speaker, said_at, meeting_seq, created_at, meeting:meetings(meeting_date)")
+    .select("id, topic, exact_quote, speaker, said_at, meeting_seq, created_at, meeting:meetings(meeting_date, title)")
     .eq("project_id", projectId)
     .eq("topic", topic)
     .eq("status", "active")
@@ -117,7 +120,7 @@ export async function getProjectMemory(
   const supabase = createServerClient();
   const { data, error } = await supabase
     .from("decisions")
-    .select("id, topic, exact_quote, speaker, said_at, meeting_seq, created_at, meeting:meetings(meeting_date)")
+    .select("id, topic, exact_quote, speaker, said_at, meeting_seq, created_at, meeting:meetings(meeting_date, title)")
     .eq("project_id", projectId)
     .eq("status", "active")
     .is("superseded_by", null)
@@ -420,6 +423,7 @@ export async function runAgent(
             meeting_seq: prior.meeting_seq,
             said_at: prior.said_at,
             decidedAt: prior.meeting_date ?? prior.created_at ?? null,
+            meetingTitle: prior.meeting_title ?? null,
           },
           now: {
             quote: dec.exact_quote,
