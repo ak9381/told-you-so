@@ -1,5 +1,13 @@
 // Scripted "Play demo clip" meetings, shared by the UI and scripts/build-demo-cache.ts.
 export const DEMO_CLIPS: Record<string, { speaker: string; text: string }[]> = {
+  // The launch story (default clip): Rohan pushes back on the 28 Oct decisions.
+  "Launch sync": [
+    { speaker: "Akash", text: "Okay, quick launch sync. Rohan, where are we?" },
+    { speaker: "Rohan", text: "Rohan here. Honestly, let's push the launch to November 14th, there's no rush." },
+    { speaker: "Rohan", text: "And let's move hosting to Vercel instead of Cloudflare, it's easier to deploy." },
+    { speaker: "Rohan", text: "Also let's add a free tier at launch so people can try it." },
+    { speaker: "Akash", text: "Okay, Rohan owns the landing page copy, due Thursday." },
+  ],
   "Hackathon submission": [
     { speaker: "Akash", text: "Okay everyone, quick sync on the hackathon submission." },
     { speaker: "Rohan", text: "I think the demo video can be like five minutes, we have a lot to show." },

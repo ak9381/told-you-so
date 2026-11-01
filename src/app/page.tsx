@@ -85,7 +85,7 @@ interface LiveCard {
 }
 
 // Mic-free demo scripts, per project (safety net for the live demo).
-const DEFAULT_CLIP = DEMO_CLIPS["Hackathon submission"];
+const DEFAULT_CLIP = DEMO_CLIPS["Launch sync"];
 
 // Turn a pasted Google Meet / Zoom URL into a browser-joinable URL.
 // Returns null if the link is neither Meet nor Zoom.
