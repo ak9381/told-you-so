@@ -228,7 +228,8 @@ export default function HomePage() {
       else if (lower.includes("slack")) setUploadType("slack");
       else if (lower.includes("transcript")) setUploadType("transcript");
       // Make the next step obvious: process the upload straight away.
-      if (text.trim()) void handleExtract(text);
+      // Pass the source explicitly: activeTab state hasn't updated yet here.
+      if (text.trim()) void handleExtract(text, "paste");
     };
     e.target.value = ""; // allow re-uploading the same file
     reader.readAsText(file);
@@ -419,7 +420,7 @@ export default function HomePage() {
     if (!transcript.trim()) return;
     setActiveTab("paste");
     setRawInput(transcript);
-    handleExtract(transcript);
+    handleExtract(transcript, "paste");
     try {
       window.scrollTo({ top: 0, behavior: "smooth" });
     } catch {
@@ -579,8 +580,9 @@ export default function HomePage() {
   const sourceLabel = activeTab === "debrief" ? "voice" : uploadType;
   const projectLabel = projectsLoaded ? currentProjectName : "Loading…";
 
-  async function handleExtract(textArg?: string) {
+  async function handleExtract(textArg?: string, tabArg?: "debrief" | "paste") {
     const input = typeof textArg === "string" ? textArg : rawInput;
+    const tab = tabArg ?? activeTab;
     if (!input.trim()) return;
     // Don't silently wipe an unconfirmed review tray (e.g. a transcript's items
     // when the user then dictates a debrief).
@@ -615,7 +617,7 @@ export default function HomePage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           rawText: input,
-          sourceType: activeTab === "debrief" ? "debrief" : undefined,
+          sourceType: tab === "debrief" ? "debrief" : undefined,
           projectId,
         }),
       });
