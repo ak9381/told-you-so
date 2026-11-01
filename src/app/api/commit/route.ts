@@ -197,10 +197,10 @@ export async function POST(request: NextRequest) {
             .eq("id", ov.oldDecisionId)
             .eq("project_id", projectId);
         } else if (ov.verdict === "keep_old") {
-          // the old decision stands; the new one is superseded
+          // the old decision stands (stays active); the new one is rejected
           await supabase
             .from("decisions")
-            .update({ status: "superseded", superseded_by: ov.oldDecisionId })
+            .update({ status: "rejected", superseded_by: ov.oldDecisionId })
             .eq("id", newDecisionId)
             .eq("project_id", projectId);
         }

@@ -1,6 +1,7 @@
 "use client";
 
 import { formatIst } from "@/lib/dates";
+import { decisionBadge } from "@/lib/decision-status";
 import { DEMO_CLIPS, clipTranscript } from "@/lib/demo-clips";
 import { useState, useEffect, useRef, useCallback } from "react";
 import AppShell from "@/components/AppShell";
@@ -34,6 +35,7 @@ interface TimelineDecision {
   said_at: string | null;
   meeting_seq: number;
   status: string;
+  superseded_by?: string | null;
   meeting_date?: string | null;
 }
 
@@ -471,8 +473,8 @@ export default function HomePage() {
 
   const lastTimelinePid = useRef<string | null>(null);
 
-  const loadTimeline = useCallback((pid: string) => {
-    if (!pid || pid.startsWith("proj-") || lastTimelinePid.current === pid) return;
+  const loadTimeline = useCallback((pid: string, force = false) => {
+    if (!pid || pid.startsWith("proj-") || (!force && lastTimelinePid.current === pid)) return;
     lastTimelinePid.current = pid;
     fetch(`/api/timeline?projectId=${pid}`)
       .then((r) => r.json())
@@ -698,7 +700,7 @@ export default function HomePage() {
         setCommittedStatus(
           `Confirmed ✓ — ${n} item${n === 1 ? "" : "s"} saved to this project's memory${warn.length ? `. Note: ${warn.join(" ")}` : ""}`
         );
-        loadTimeline(selectedProjectId);
+        loadTimeline(selectedProjectId, true); // show the new history without a reload
       } else {
         const body = await res.json().catch(() => ({}));
         setCommittedStatus(`Not recorded — ${body.error || "commit failed"}`);
@@ -1465,7 +1467,8 @@ export default function HomePage() {
                 </div>
                 <ul className="space-y-2">
                   {decs.map((d) => {
-                    const struck = d.status !== "active";
+                    const badge = decisionBadge(d, timeline);
+                    const struck = badge !== null;
                     return (
                       <li key={d.id} className="text-sm flex items-start gap-2">
                         <span className={`flex-1 ${struck ? "line-through text-[#B9B6AE]" : "text-[#1A1715]"}`}>
@@ -1483,7 +1486,7 @@ export default function HomePage() {
                           </span>
                         </span>
                         {struck && (
-                          <Chip tone="accent">{d.status === "overruled" ? "overruled" : "pivot"}</Chip>
+                          <Chip tone="accent">{badge}</Chip>
                         )}
                       </li>
                     );

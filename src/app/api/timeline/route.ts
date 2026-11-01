@@ -18,7 +18,7 @@ export async function GET(request: NextRequest) {
   }
   const { data, error } = await supabase
     .from("decisions")
-    .select("id, topic, exact_quote, speaker, said_at, meeting_seq, status, meeting:meetings(meeting_date)")
+    .select("id, topic, exact_quote, speaker, said_at, meeting_seq, status, superseded_by, meeting:meetings(meeting_date)")
     .eq("project_id", projectId)
     .order("topic", { ascending: true })
     .order("meeting_seq", { ascending: false })
