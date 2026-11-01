@@ -199,10 +199,10 @@ interface SampleOut {
 
 async function geminiVerifyOnce(prompt: string, key: string, temperature: number, nCandidates: number): Promise<SampleOut> {
   const res = await fetchWithRetry(
-    `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${key}`,
+    `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent`,
     {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: { "Content-Type": "application/json", "x-goog-api-key": key },
       body: JSON.stringify({
         contents: [{ parts: [{ text: prompt }] }],
         generationConfig: { responseMimeType: "application/json", temperature },
@@ -230,10 +230,10 @@ async function embeddingCosine(a: string, b: string, key: string): Promise<numbe
   const model = process.env.GEMINI_EMBED_MODEL || "gemini-embedding-001";
   try {
     const res = await fetchWithRetry(
-      `https://generativelanguage.googleapis.com/v1beta/models/${model}:batchEmbedContents?key=${key}`,
+      `https://generativelanguage.googleapis.com/v1beta/models/${model}:batchEmbedContents`,
       {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", "x-goog-api-key": key },
         body: JSON.stringify({
           requests: [a, b].map((t) => ({
             model: `models/${model}`,

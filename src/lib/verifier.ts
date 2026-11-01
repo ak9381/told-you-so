@@ -81,10 +81,10 @@ Return ONLY JSON:
 confidence is 0-1: 1 = fully faithful, below 0.6 = likely wrong or hallucinated.`;
 
     const res = await fetchWithRetry(
-      `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${key}`,
+      `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent`,
       {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", "x-goog-api-key": key },
         body: JSON.stringify({
           contents: [{ parts: [{ text: prompt }] }],
           generationConfig: { responseMimeType: "application/json", temperature: 0 },
