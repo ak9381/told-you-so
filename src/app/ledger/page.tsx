@@ -230,6 +230,7 @@ export default function LedgerPage() {
   }
 
   async function remindNow(id: string) {
+    if (!window.confirm(`Send reminder to ${reminderTo || "the demo inbox"}?`)) return;
     setMsg("Sending reminder…");
     const r = await fetch("/api/send-now", {
       method: "POST",
