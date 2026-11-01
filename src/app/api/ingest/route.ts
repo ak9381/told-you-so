@@ -72,19 +72,19 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Conflict-detection agent (MB3) and extraction verification (#5) run in
-    // parallel; neither may block the tray.
-    const agentP: Promise<AgentResult | null> =
+    // Extraction verification (#5) runs FIRST, then the conflict-detection
+    // agent (MB3). Running them in parallel made them compete for the Worker's
+    // per-request subrequest budget, and verify lost. Neither may block the tray.
+    const verification: Verification | null = flags.verifyExtraction
+      ? await verifyExtraction(rawText, extraction, userId)
+      : null;
+    const agent: AgentResult | null =
       typeof projectId === "string" && extraction.decisions.length > 0
-        ? runAgent(extraction.decisions, projectId, userId).catch((e) => {
+        ? await runAgent(extraction.decisions, projectId, userId).catch((e) => {
             log.error("Agent error:", e);
             return null;
           })
-        : Promise.resolve(null);
-    const verifyP: Promise<Verification | null> = flags.verifyExtraction
-      ? verifyExtraction(rawText, extraction, userId)
-      : Promise.resolve(null);
-    const [agent, verification] = await Promise.all([agentP, verifyP]);
+        : null;
 
     return NextResponse.json({
       ok: true,
