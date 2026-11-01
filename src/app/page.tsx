@@ -44,6 +44,7 @@ interface TimelineDecision {
   superseded_by?: string | null;
   meeting_date?: string | null;
   meeting_title?: string | null;
+  flagged?: boolean;
 }
 
 function groupByTopic(decisions: TimelineDecision[]) {
@@ -1563,6 +1564,14 @@ export default function HomePage() {
                         </span>
                         {struck && (
                           <Chip tone="accent">{badge}</Chip>
+                        )}
+                        {!struck && d.flagged && (
+                          <span
+                            className="shrink-0 rounded bg-[#FFF4D6] px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-[#8A6A00]"
+                            title="Flagged for later on an objection — both decisions stand for now"
+                          >
+                            flagged
+                          </span>
                         )}
                       </li>
                     );

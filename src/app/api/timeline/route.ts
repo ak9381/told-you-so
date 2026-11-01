@@ -30,12 +30,28 @@ export async function GET(request: NextRequest) {
     log.error("timeline error:", error);
     return NextResponse.json({ decisions: [] }, { status: 500 });
   }
+  // Decisions someone marked "Flag for later" on an objection.
+  const { data: flaggedRows } = await supabase
+    .from("objections")
+    .select("old_decision_id, new_decision_id")
+    .eq("project_id", projectId)
+    .eq("verdict", "flag");
+  const flagged = new Set<string>();
+  for (const o of flaggedRows ?? []) {
+    if (o.old_decision_id) flagged.add(o.old_decision_id as string);
+    if (o.new_decision_id) flagged.add(o.new_decision_id as string);
+  }
   const decisions = (data ?? []).map((d) => {
     const m = Array.isArray(d.meeting) ? d.meeting[0] : d.meeting;
     const { meeting: _m, ...rest } = d;
     void _m;
     const mm = m as { meeting_date?: string | null; title?: string | null } | null;
-    return { ...rest, meeting_date: mm?.meeting_date ?? null, meeting_title: mm?.title ?? null };
+    return {
+      ...rest,
+      meeting_date: mm?.meeting_date ?? null,
+      meeting_title: mm?.title ?? null,
+      flagged: flagged.has(d.id as string),
+    };
   });
   // Never cache: the history must update right after Tick & confirm.
   return NextResponse.json({ decisions }, { headers: { "Cache-Control": "no-store" } });
