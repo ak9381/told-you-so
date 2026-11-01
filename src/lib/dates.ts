@@ -12,6 +12,21 @@ export function resolveDue(input?: string | null): string | null {
   const s = input.toLowerCase().trim();
   const now = new Date();
 
+  // Absolute ISO timestamps. One with an explicit offset (+05:30, -04:00) is
+  // trusted. A bare one ("2026-11-01T23:59") or one tagged IST is IST wall
+  // clock. A trailing "Z" from the model is almost always IST wall clock
+  // mislabelled as UTC (that turned 11:59 PM into 5:29 AM), so it's read as IST.
+  const iso = input.trim().match(/^(\d{4})-(\d{2})-(\d{2})(?:[t ](\d{1,2}):(\d{2})(?::\d{2}(?:\.\d+)?)?)?\s*(z|ist|[+-]\d{2}:?\d{2})?$/i);
+  if (iso) {
+    const [, y, mo, d, hh, mm, tz] = iso;
+    if (tz && /^[+-]/.test(tz)) {
+      const t = Date.parse(`${y}-${mo}-${d}T${(hh ?? "09").padStart(2, "0")}:${mm ?? "00"}:00${tz.length === 5 ? tz.slice(0, 3) + ":" + tz.slice(3) : tz}`);
+      return isNaN(t) ? null : new Date(t).toISOString();
+    }
+    const wall = new Date(Date.UTC(+y, +mo - 1, +d, hh ? +hh : 9, mm ? +mm : 0));
+    return isNaN(wall.getTime()) ? null : fromIst(wall);
+  }
+
   // "in N minutes/hours" — exact, used for the demo reminder beat.
   const rel = s.match(/in\s+(\d+)\s*(min|minute|minutes|hour|hours|hr|hrs)/);
   if (rel) {
@@ -40,6 +55,31 @@ export function resolveDue(input?: string | null): string | null {
 
   const base = new Date(now.getTime() + IST_OFFSET_MS); // IST wall clock in UTC fields
   const timeMatch = s.match(/(\d{1,2})(?::(\d{2}))?\s*(am|pm)/);
+
+  // Explicit calendar dates: "1 Nov", "Nov 1", "1st November 2026", "2026-11-01 11:59 pm".
+  const MONTHS = ["jan", "feb", "mar", "apr", "may", "jun", "jul", "aug", "sep", "oct", "nov", "dec"];
+  const mon = "(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*\\.?";
+  const dm = s.match(new RegExp(`\\b(\\d{1,2})(?:st|nd|rd|th)?\\s+${mon}(?:,?\\s+(\\d{4}))?`));
+  const md = dm ? null : s.match(new RegExp(`\\b${mon}\\s+(\\d{1,2})(?:st|nd|rd|th)?\\b(?:,?\\s+(\\d{4}))?`));
+  const ymd = s.match(/\b(\d{4})-(\d{2})-(\d{2})\b/);
+  let explicit: { y: number; m: number; d: number } | null = null;
+  if (dm) explicit = { d: +dm[1], m: MONTHS.indexOf(dm[2]), y: dm[3] ? +dm[3] : base.getUTCFullYear() };
+  else if (md) explicit = { m: MONTHS.indexOf(md[1]), d: +md[2], y: md[3] ? +md[3] : base.getUTCFullYear() };
+  else if (ymd) explicit = { y: +ymd[1], m: +ymd[2] - 1, d: +ymd[3] };
+  if (explicit && explicit.m >= 0 && explicit.d >= 1 && explicit.d <= 31) {
+    let h = 9;
+    let min = 0;
+    if (timeMatch) {
+      h = parseInt(timeMatch[1], 10);
+      min = timeMatch[2] ? parseInt(timeMatch[2], 10) : 0;
+      if (timeMatch[3] === "pm" && h < 12) h += 12;
+      if (timeMatch[3] === "am" && h === 12) h = 0;
+    } else if (s.includes("midnight") || s.includes("eod") || s.includes("end of day")) {
+      h = 23;
+      min = 59;
+    }
+    return fromIst(new Date(Date.UTC(explicit.y, explicit.m, explicit.d, h, min)));
+  }
 
   if (s.includes("midnight")) {
     base.setUTCDate(base.getUTCDate() + dayOffset);
@@ -74,4 +114,18 @@ export function resolveDue(input?: string | null): string | null {
 /** Is this action part of the live demo (shorter reminder lead)? */
 export function isDemoProject(projectName?: string): boolean {
   return (projectName || "").toLowerCase().includes("hackathon");
+}
+
+/** One display format everywhere: "1 Nov 2026, 11:59 pm IST" (no seconds). */
+export function formatIst(value?: string | null, opts: { time?: boolean } = {}): string {
+  if (!value) return "—";
+  const dateOnly = /^\d{4}-\d{2}-\d{2}$/.test(value);
+  const d = new Date(dateOnly ? `${value}T12:00:00+05:30` : value);
+  if (isNaN(d.getTime())) return value;
+  const date = d.toLocaleDateString("en-GB", { timeZone: "Asia/Kolkata", day: "numeric", month: "short", year: "numeric" });
+  if (dateOnly || opts.time === false) return date;
+  const time = d
+    .toLocaleTimeString("en-US", { timeZone: "Asia/Kolkata", hour: "numeric", minute: "2-digit", hour12: true })
+    .toLowerCase();
+  return `${date}, ${time} IST`;
 }

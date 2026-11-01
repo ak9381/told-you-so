@@ -204,7 +204,7 @@ Return ONLY a JSON object adhering to this structure:
     {
       "title": "actionable task title",
       "owner": "person name (resolve 'I' to '${currentUserName}')",
-      "due_date": "resolved date/time string",
+      "due_date": "the due time as said, in IST wall-clock words (e.g. \"1 Nov 2026 11:59 pm\", \"tomorrow 5 pm\", \"Friday\"); never convert to UTC",
       "source_quote": "exact substring from input",
       "reminder_lead_min": 1440
     }

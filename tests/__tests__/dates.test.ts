@@ -42,3 +42,42 @@ describe("resolveDue (IST)", () => {
     expect(resolveDue("")).toBeNull();
   });
 });
+
+import { formatIst } from "../../src/lib/dates";
+
+describe("resolveDue explicit dates (IST)", () => {
+  afterEach(() => vi.useRealTimers());
+  const setNow = () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-10-31T14:30:00Z"));
+  };
+  it("'1 Nov 11:59 PM IST' is 1 Nov 23:59 IST, not 5:29 AM", () => {
+    setNow();
+    expect(ist(resolveDue("1 Nov 11:59 PM IST"))).toBe("01/11/2026, 23:59:00");
+  });
+  it("'Nov 7, 2026 10 am'", () => {
+    setNow();
+    expect(ist(resolveDue("Nov 7, 2026 10 am"))).toBe("07/11/2026, 10:00:00");
+  });
+  it("bare ISO is IST wall clock", () => {
+    expect(ist(resolveDue("2026-11-01T23:59:00"))).toBe("01/11/2026, 23:59:00");
+  });
+  it("ISO with a model 'Z' is read as IST wall clock", () => {
+    expect(ist(resolveDue("2026-11-01T23:59:00Z"))).toBe("01/11/2026, 23:59:00");
+  });
+  it("ISO with explicit offset is trusted", () => {
+    expect(ist(resolveDue("2026-11-01T23:59:00+05:30"))).toBe("01/11/2026, 23:59:00");
+    expect(ist(resolveDue("2026-11-01T12:00:00-04:00"))).toBe("01/11/2026, 21:30:00");
+  });
+  it("date-only ISO defaults to 09:00 IST", () => {
+    expect(ist(resolveDue("2026-11-05"))).toBe("05/11/2026, 09:00:00");
+  });
+});
+
+describe("formatIst", () => {
+  it("formats in IST without seconds", () => {
+    expect(formatIst("2026-11-01T18:29:00Z")).toBe("1 Nov 2026, 11:59 pm IST");
+  });
+  it("date-only stays a date", () => expect(formatIst("2026-10-24")).toBe("24 Oct 2026"));
+  it("empty is a dash", () => expect(formatIst(null)).toBe("—"));
+});
