@@ -6,6 +6,10 @@ import { fetchWithRetry } from "@/lib/http";
 // Resend test mode only delivers to the account owner's verified address.
 // Falling back to ALLOWED_EMAILS[0] sent to an unverified inbox and failed.
 export const DEMO_INBOX = "ak9381@nyu.edu";
+/** The one verified inbox every demo email is delivered to. */
+export function reminderInbox(): string {
+  return ownerEmail();
+}
 function ownerEmail(): string {
   return (process.env.RESEND_OWNER_EMAIL || "").trim() || DEMO_INBOX;
 }

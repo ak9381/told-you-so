@@ -68,6 +68,13 @@ async function ensureProjectId(): Promise<string | null> {
 
 export default function LedgerPage() {
   const [actions, setActions] = useState<ActionRow[]>([]);
+  const [reminderTo, setReminderTo] = useState("");
+  useEffect(() => {
+    fetch("/api/me")
+      .then((r) => r.json())
+      .then((d) => setReminderTo(d.reminderTo ?? ""))
+      .catch(() => {});
+  }, []);
   const [notionLog, setNotionLog] = useState<NotionLogRow[]>([]);
   const [notionDbUrl, setNotionDbUrl] = useState<string | null>(null);
   const [msg, setMsg] = useState("");
@@ -230,7 +237,11 @@ export default function LedgerPage() {
       body: JSON.stringify({ kind: "reminder", actionId: id }),
     });
     const d = await r.json();
-    setMsg(d.sent ? `Reminder sent (${d.sent}). Check Reminders.` : `No email sent — ${d.errors?.join(", ") || "see Reminders"}.`);
+    setMsg(
+      d.sent
+        ? `Reminder sent to ${d.to || "the demo inbox"}. Check Reminders.`
+        : `No email sent — ${d.errors?.join(", ") || "see Reminders"}.`
+    );
   }
 
   const filed = notionLog.filter((n) => n.status === "filed").length;
@@ -280,8 +291,9 @@ export default function LedgerPage() {
       <div className="mb-6 inline-flex items-center gap-2 rounded-lg bg-[#FFF8E6] border border-[#F0E3B8] px-3.5 py-2 text-sm text-[#7A6A2F]">
         <span>✉️</span>
         <span>
-          Demo note: reminder emails go to one verified demo inbox, with the owner&rsquo;s name in the
-          subject. With a verified sending domain they would go to each owner directly.
+          Demo note: reminder emails go to one verified demo inbox
+          {reminderTo ? <> (<strong className="font-medium">{reminderTo}</strong>)</> : null}, with the
+          owner&rsquo;s name in the subject. With a verified sending domain they would go to each owner directly.
         </span>
       </div>
 

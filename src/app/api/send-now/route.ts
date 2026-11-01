@@ -3,7 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { runReminders } from "@/lib/reminders";
 import { runDigests, buildDigest, renderDigestHtml } from "@/lib/digest";
 import { createServerClient } from "@/lib/supabase";
-import { sendEmail } from "@/lib/email";
+import { sendEmail, reminderInbox } from "@/lib/email";
 import { requireUser, readJson, canAccessAction, isUuid, jsonError, userProjectIds } from "@/lib/api-guard";
 
 // Authenticated UI endpoint for the "Send now" / "Remind now" buttons.
@@ -26,7 +26,7 @@ export async function POST(request: NextRequest) {
       actionId: isUuid(actionId) ? actionId : undefined,
       projectIds: await userProjectIds(createServerClient(), auth.user.id),
     });
-    return NextResponse.json({ ok: true, ...r });
+    return NextResponse.json({ ok: true, ...r, to: reminderInbox() });
   }
 
   if (kind === "digest-all") {

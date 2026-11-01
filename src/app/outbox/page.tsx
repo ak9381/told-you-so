@@ -36,6 +36,13 @@ export default function OutboxPage() {
   const [updatedAt, setUpdatedAt] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState("");
+  const [reminderTo, setReminderTo] = useState("");
+  useEffect(() => {
+    fetch("/api/me")
+      .then((r) => r.json())
+      .then((d) => setReminderTo(d.reminderTo ?? ""))
+      .catch(() => {});
+  }, []);
 
   useEffect(() => {
     const load = () => {
@@ -88,8 +95,9 @@ export default function OutboxPage() {
 
       <p className="text-[#6B6560] -mt-4 mb-8 max-w-2xl">
         Every reminder &amp; weekly-digest email we&rsquo;ve scheduled or sent, with delivery status.
-        For the demo these all land in one verified demo inbox (the intended person&rsquo;s name is
-        in the subject) — a verified sending domain would send to each owner directly. WhatsApp
+        For the demo these all land in one verified demo inbox
+        {reminderTo ? <> — <strong className="font-medium text-[#1A1715]">{reminderTo}</strong></> : null}{" "}
+        (the intended person&rsquo;s name is in the subject) — a verified sending domain would send to each owner directly. WhatsApp
         reminders aren&rsquo;t supported yet; WhatsApp is an input (chat export) only.
       </p>
 
@@ -104,6 +112,7 @@ export default function OutboxPage() {
                 <th className="px-4 py-3 font-medium">Scheduled</th>
                 <th className="px-4 py-3 font-medium">Sent</th>
                 <th className="px-4 py-3 font-medium">Channel</th>
+                <th className="px-4 py-3 font-medium">Delivered to</th>
                 <th className="px-4 py-3 font-medium">Status</th>
                 <th className="px-4 py-3 font-medium">Resend ID</th>
               </tr>
@@ -111,14 +120,14 @@ export default function OutboxPage() {
             <tbody>
               {loading && (
                 <tr>
-                  <td colSpan={8} className="px-4 py-8 text-[#9B9690] text-center">
+                  <td colSpan={9} className="px-4 py-8 text-[#9B9690] text-center">
                     Loading reminders…
                   </td>
                 </tr>
               )}
               {!loading && rows.length === 0 && (
                 <tr>
-                  <td colSpan={8} className="px-4 py-8 text-[#9B9690] italic text-center">
+                  <td colSpan={9} className="px-4 py-8 text-[#9B9690] italic text-center">
                     No reminders or digests yet.
                   </td>
                 </tr>
@@ -133,6 +142,7 @@ export default function OutboxPage() {
                   <td className="px-4 py-3 text-[#6B6560]">{fmt(r.scheduled_at)}</td>
                   <td className="px-4 py-3 text-[#6B6560]">{fmt(r.sent_at)}</td>
                   <td className="px-4 py-3 text-[#6B6560]">{r.channel}</td>
+                  <td className="px-4 py-3 text-[#6B6560]">{r.status === "SENT" ? reminderTo || "demo inbox" : "—"}</td>
                   <td className="px-4 py-3">
                     <Chip tone={statusTone(r.status)}>{STATUS_LABEL[r.status] ?? r.status}</Chip>
                     {r.error ? <div className="mt-1 text-xs text-[#C0392B]">{r.error}</div> : null}
