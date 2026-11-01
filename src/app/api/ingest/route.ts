@@ -10,6 +10,23 @@ import { verifyExtraction, type Verification } from "@/lib/verifier";
 
 const MAX_RAW_CHARS = 200_000;
 
+/** Who "I" is: the team member with this email, else the profile name, else the email handle. */
+async function speakerNameFor(email: string, meta?: Record<string, unknown>): Promise<string> {
+  if (email) {
+    const { data } = await createServerClient()
+      .from("people")
+      .select("name")
+      .ilike("email", email)
+      .limit(1)
+      .maybeSingle();
+    if (data?.name) return String(data.name);
+  }
+  const full = typeof meta?.full_name === "string" ? meta.full_name : typeof meta?.name === "string" ? meta.name : "";
+  if (full.trim()) return full.trim().split(/\s+/)[0].slice(0, 80);
+  const handle = email.split("@")[0].replace(/\+.*$/, "").replace(/[^a-zA-Z]/g, "");
+  return handle ? handle.charAt(0).toUpperCase() + handle.slice(1) : "Me";
+}
+
 export async function POST(request: NextRequest) {
   try {
     const auth = await requireUser(request);
@@ -30,8 +47,10 @@ export async function POST(request: NextRequest) {
       return jsonError("Project not found.", 404);
     }
 
-    const currentUserName = (typeof userName === "string" && userName.trim().slice(0, 80)) || "Akash";
     const userId = auth.user.id;
+    const currentUserName =
+      (typeof userName === "string" && userName.trim().slice(0, 80)) ||
+      (await speakerNameFor(auth.user.email ?? "", auth.user.user_metadata));
     const { utterances, detectedType } = parseMeetingInput(
       rawText,
       sourceType as InputSourceType,
