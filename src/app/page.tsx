@@ -217,6 +217,10 @@ export default function HomePage() {
     return id ?? selectedProjectId;
   }
 
+  const [demoPlaying, setDemoPlaying] = useState(false);
+  // While a live meeting runs, keep the page clean: the earlier review tray is
+  // hidden (not cleared) and comes back when listening / the demo clip stops.
+  const trayHidden = listening || demoPlaying;
   const liveOpen =
     meetingLink.trim().length > 0 || listening || liveLines.length > 0 || liveCards.length > 0;
 
@@ -438,6 +442,7 @@ export default function HomePage() {
     liveLinesRef.current = [];
     setLiveCards([]);
     setLiveStatus("Playing demo clip…");
+    setDemoPlaying(true);
     const clip = DEMO_CLIPS[currentProjectName] ?? DEFAULT_CLIP;
     for (const line of clip) {
       addLiveLine(line.speaker, line.text);
@@ -445,6 +450,7 @@ export default function HomePage() {
       await sendForCheck(`${line.speaker}: ${line.text}`, true);
       await new Promise((r) => setTimeout(r, 1200));
     }
+    setDemoPlaying(false);
     setLiveStatus("Demo clip finished.");
   }
 
@@ -1115,6 +1121,11 @@ export default function HomePage() {
       </div>
 
       {/* Live meeting listener — revealed once a link is pasted or a clip plays */}
+      {liveOpen && trayHidden && result && !committed && (
+        <p className="text-xs text-[#9B9690] mb-3">
+          Your unconfirmed review tray is hidden during the live meeting — it comes back when you stop.
+        </p>
+      )}
       {liveOpen && (
         <Card className="p-6 mb-8" id="live">
           <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
@@ -1313,7 +1324,7 @@ export default function HomePage() {
       )}
 
       {/* Split view */}
-      {result && (
+      {result && !trayHidden && (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-5 mb-8">
           <Card className="p-5">
             <div className="flex items-center justify-between mb-3">
@@ -1401,7 +1412,7 @@ export default function HomePage() {
       )}
 
       {/* Objection cards */}
-      {objections.map((obj, i) => (
+      {!trayHidden && objections.map((obj, i) => (
         <Card key={i} className="p-5 mb-4 border-l-4 border-[#C0392B]">
           <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
             <div className="flex items-center gap-2">
@@ -1458,7 +1469,7 @@ export default function HomePage() {
       ))}
 
       {/* Maybe chips */}
-      {maybes.map((m, i) => (
+      {!trayHidden && maybes.map((m, i) => (
         <Card key={i} className="p-3 mb-2">
           <div className="flex items-center justify-between mb-1">
             <span className="text-xs uppercase tracking-wide text-[#9B9690]">
@@ -1473,7 +1484,7 @@ export default function HomePage() {
       ))}
 
       {/* Refinement chips */}
-      {refinements.length > 0 && (
+      {!trayHidden && refinements.length > 0 && (
         <div className="flex flex-wrap gap-2 mb-8">
           {refinements.map((r, i) => (
             <div
@@ -1488,7 +1499,7 @@ export default function HomePage() {
       )}
 
       {/* Reasoning trail */}
-      {trace.length > 0 && (
+      {!trayHidden && trace.length > 0 && (
         <Card className="p-5 mb-8">
           <div className="flex items-center justify-between mb-3">
             <h4 className="font-serif text-lg text-[#1A1715]">Reasoning trail</h4>
@@ -1513,7 +1524,7 @@ export default function HomePage() {
       )}
 
       {/* Confirmation tray */}
-      {result && (
+      {result && !trayHidden && (
         <Card className="p-6 mb-10">
           <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[#EFEEEA] pb-3 mb-4">
             <div>
