@@ -123,7 +123,10 @@ export default function WelcomeClient() {
             <br />
             that <span className="italic text-[#C0392B]">argues back.</span>
           </h1>
-          <p className="tys-fade tys-d3 mx-auto mt-8 max-w-2xl text-lg leading-relaxed text-[#A8A29E] md:text-xl">
+          <p className="tys-fade tys-d3 mx-auto mt-6 max-w-2xl text-base font-medium uppercase tracking-wider text-[#F5F5F4]/80">
+            Teams quietly reverse decisions they already made — and nobody remembers who agreed to what.
+          </p>
+          <p className="tys-fade tys-d3 mx-auto mt-6 max-w-2xl text-lg leading-relaxed text-[#A8A29E] md:text-xl">
             Decision logs failed because writing them is a chore.{" "}
             <span className="text-[#F5F5F4]">Told You So writes itself</span> from your voice and
             chats, then objects when you drift.
