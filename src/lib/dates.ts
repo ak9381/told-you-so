@@ -129,3 +129,21 @@ export function formatIst(value?: string | null, opts: { time?: boolean } = {}):
     .toLowerCase();
   return `${date}, ${time} IST`;
 }
+
+const MONTH_OR_ISO = /\b(\d{4}-\d{2}-\d{2}|jan(uary)?|feb(ruary)?|mar(ch)?|apr(il)?|may|june?|july?|aug(ust)?|sep(t(ember)?)?|oct(ober)?|nov(ember)?|dec(ember)?)\b/i;
+
+/**
+ * How to show an extracted due date in the review tray. Relative phrases
+ * ("by Wednesday") are resolved and marked as inferred:
+ *   "Wed 4 Nov (from 'by Wednesday')". Explicit dates are just formatted.
+ */
+export function describeDue(raw?: string | null): { text: string; inferred: boolean } {
+  const phrase = (raw || "").trim();
+  if (!phrase) return { text: "no due date", inferred: false };
+  const iso = resolveDue(phrase);
+  if (!iso) return { text: phrase, inferred: false };
+  if (MONTH_OR_ISO.test(phrase)) return { text: formatIst(iso), inferred: false };
+  const d = new Date(iso);
+  const day = d.toLocaleDateString("en-GB", { timeZone: "Asia/Kolkata", weekday: "short", day: "numeric", month: "short" });
+  return { text: `${day.replace(",", "")} (from '${phrase}')`, inferred: true };
+}

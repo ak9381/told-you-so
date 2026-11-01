@@ -81,3 +81,18 @@ describe("formatIst", () => {
   it("date-only stays a date", () => expect(formatIst("2026-10-24")).toBe("24 Oct 2026"));
   it("empty is a dash", () => expect(formatIst(null)).toBe("—"));
 });
+
+import { describeDue } from "@/lib/dates";
+describe("describeDue", () => {
+  it("marks relative phrases as inferred and keeps the phrase", () => {
+    const r = describeDue("by Wednesday");
+    expect(r.inferred).toBe(true);
+    expect(r.text).toMatch(/^Wed \d{1,2} [A-Z][a-z]{2} \(from 'by Wednesday'\)$/);
+  });
+  it("does not mark explicit dates as inferred", () => {
+    expect(describeDue("Nov 7, 2026").inferred).toBe(false);
+  });
+  it("handles a missing date", () => {
+    expect(describeDue("").text).toBe("no due date");
+  });
+});

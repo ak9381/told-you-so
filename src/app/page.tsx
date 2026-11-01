@@ -1,6 +1,6 @@
 "use client";
 
-import { formatIst } from "@/lib/dates";
+import { formatIst, describeDue } from "@/lib/dates";
 import { decisionBadge } from "@/lib/decision-status";
 import { meetingLabel } from "@/lib/meeting-label";
 import { DEMO_CLIPS, clipTranscript } from "@/lib/demo-clips";
@@ -1199,7 +1199,7 @@ export default function HomePage() {
                     <div key={idx} className="bg-white/[0.06] rounded-xl p-3 mb-2">
                       <div className="font-medium">{act.title}</div>
                       <div className="text-white/60 text-xs mt-0.5">
-                        {act.owner} · due {act.due_date}
+                        {act.owner} · due {describeDue(act.due_date).text}
                       </div>
                       <blockquote className="text-white/40 text-xs italic mt-1">
                         &ldquo;{act.source_quote}&rdquo;
@@ -1388,7 +1388,7 @@ export default function HomePage() {
                 <div className="flex-1 text-sm">
                   <div className="font-medium text-[#1A1715]">{act.title}</div>
                   <div className="text-[#6B6560] text-xs">
-                    {act.owner} · due {act.due_date}
+                    {act.owner} · due {describeDue(act.due_date).text}
                   </div>
                   <div className="text-[#9B9690] italic text-xs mt-0.5">
                     &ldquo;{act.source_quote}&rdquo;
