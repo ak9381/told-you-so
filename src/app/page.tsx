@@ -173,6 +173,7 @@ export default function HomePage() {
   const liveStartRef = useRef<number>(Date.now());
   const liveLineId = useRef(0);
   const liveInFlight = useRef(false);
+  const livePending = useRef(""); // live text not yet checked (cooldown / in flight)
   const recognitionRef = useRef<unknown>(null);
 
   const liveOpen =
@@ -219,21 +220,38 @@ export default function HomePage() {
   // Send new text to the live-check route (one request in flight).
   const sendForCheck = useCallback(
     async (text: string, demo = false) => {
-      if (!selectedProjectId || (!demo && liveInFlight.current)) return;
-      if (!demo) liveInFlight.current = true;
+      if (!selectedProjectId) return;
+      if (!demo && liveInFlight.current) {
+        // Don't drop lines spoken while a check is running — send them next time.
+        livePending.current = `${livePending.current}\n${text}`.trim();
+        return;
+      }
+      const payload = demo ? text : `${livePending.current}\n${text}`.trim();
+      if (!demo) {
+        livePending.current = "";
+        liveInFlight.current = true;
+      }
       try {
         const res = await fetch("/api/live-check", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ newText: text, projectId: selectedProjectId, demo }),
+          body: JSON.stringify({ newText: payload, projectId: selectedProjectId, demo }),
         });
         const data = await res.json();
         if (data.results?.length) {
           const stamped: LiveCard[] = data.results.map((r: LiveCard) => ({ ...r, ts: mmss() }));
           setLiveCards((prev) => [...stamped, ...prev]);
         }
+        if (data.skipped && data.reason === "live_check_cooldown" && !demo) {
+          // Rate-limited (1 check / 15 s): keep the text for the next check.
+          livePending.current = `${payload}\n${livePending.current}`.trim().slice(-15_000);
+        } else if (data.skipped && data.reason === "daily_limit") {
+          setLiveStatus("Daily AI limit reached — live conflict checks are paused until tomorrow. The transcript is still captured.");
+        } else if (data.skipped && (data.reason === "usage_unavailable" || data.reason === "no_key" || String(data.reason || "").startsWith("gemini_"))) {
+          setLiveStatus("Live conflict check is unavailable right now. Keep talking — End meeting still checks the full transcript.");
+        }
       } catch {
-        /* ignore transient live-check errors */
+        if (!demo) livePending.current = `${payload}\n${livePending.current}`.trim().slice(-15_000);
       } finally {
         if (!demo) liveInFlight.current = false;
       }
