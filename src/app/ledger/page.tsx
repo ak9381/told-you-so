@@ -320,6 +320,9 @@ export default function LedgerPage() {
               onKeyDown={(e) => {
                 if (e.key === "Enter") addMember();
               }}
+              type="email"
+              autoComplete="off"
+              aria-label="Member email (optional)"
               placeholder="Email (optional)"
               className="w-48 rounded-lg border border-[#E7E5E0] px-3 py-2 text-sm focus:outline-none focus:border-[#B9B6AE]"
             />
@@ -350,7 +353,11 @@ export default function LedgerPage() {
                   {p.name.slice(0, 1).toUpperCase()}
                 </span>
                 {p.name}
-                {p.email ? <span className="text-[#9B9690]">· {p.email}</span> : null}
+                {p.email ? (
+                  <span className="max-w-[16rem] truncate text-[#9B9690]" title={p.email}>
+                    &middot; {p.email.trim().toLowerCase()}
+                  </span>
+                ) : null}
               </span>
             ))}
           </div>
