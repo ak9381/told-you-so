@@ -19,7 +19,13 @@ export async function POST(request: NextRequest) {
     if (actionId != null && (!isUuid(actionId) || !(await canAccessAction(createServerClient(), actionId, auth.user.id)))) {
       return jsonError("Task not found.", 404);
     }
-    const r = await runReminders({ force: true, actionId: isUuid(actionId) ? actionId : undefined });
+    // Always scope to the caller's projects, so "Remind now" never emails
+    // other users' task owners.
+    const r = await runReminders({
+      force: true,
+      actionId: isUuid(actionId) ? actionId : undefined,
+      projectIds: await userProjectIds(createServerClient(), auth.user.id),
+    });
     return NextResponse.json({ ok: true, ...r });
   }
 

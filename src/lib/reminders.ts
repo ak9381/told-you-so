@@ -22,6 +22,8 @@ interface ActionRow {
 export async function runReminders(opts?: {
   force?: boolean;
   actionId?: string;
+  /** Restrict to these projects (the caller's). Empty list = nothing to send. */
+  projectIds?: string[];
 }): Promise<ReminderRunResult> {
   const supabase = createServerClient();
   const now = Date.now();
@@ -33,6 +35,10 @@ export async function runReminders(opts?: {
     .eq("status", "open")
     .not("due_date", "is", null);
   if (opts?.actionId) query = query.eq("id", opts.actionId);
+  if (opts?.projectIds) {
+    if (opts.projectIds.length === 0) return result;
+    query = query.in("project_id", opts.projectIds);
+  }
 
   const { data: actions } = await query;
   result.checked = actions?.length ?? 0;
