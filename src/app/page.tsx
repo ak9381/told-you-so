@@ -137,6 +137,7 @@ export default function HomePage() {
   const [checkedDecisions, setCheckedDecisions] = useState<Record<number, boolean>>({});
   const [checkedActions, setCheckedActions] = useState<Record<number, boolean>>({});
   const [committedStatus, setCommittedStatus] = useState<string | null>(null);
+  const [committed, setCommitted] = useState(false); // tray already saved — block double saves
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [objections, setObjections] = useState<Objection[]>([]);
   const [maybes, setMaybes] = useState<Maybe[]>([]);
@@ -517,6 +518,7 @@ export default function HomePage() {
     if (!input.trim()) return;
     setIsProcessing(true);
     setCommittedStatus(null);
+    setCommitted(false);
     setErrorMsg(null);
     setObjections([]);
     setMaybes([]);
@@ -585,7 +587,11 @@ export default function HomePage() {
   }
 
   async function handleConfirm() {
-    if (!result) return;
+    if (!result || committed) return;
+    if (!selectedProjectId || selectedProjectId.startsWith("proj-")) {
+      setCommittedStatus("Not recorded — pick or create a project first (top left).");
+      return;
+    }
     setIsProcessing(true);
 
     const selectedDecisions = result.decisions.filter((_, i) => checkedDecisions[i]);
@@ -631,8 +637,9 @@ export default function HomePage() {
 
       if (res.ok) {
         const n = selectedDecisions.length + selectedActions.length;
+        setCommitted(true);
         setCommittedStatus(
-          `Ingested ✓ — ${n} item${n === 1 ? "" : "s"} saved to this project's memory`
+          `Confirmed ✓ — ${n} item${n === 1 ? "" : "s"} saved to this project's memory`
         );
         loadTimeline(selectedProjectId);
       } else {
@@ -1347,9 +1354,19 @@ export default function HomePage() {
           </div>
 
           <div className="pt-4 border-t border-[#EFEEEA] flex flex-wrap items-center justify-between gap-3">
-            <span className="text-xs text-[#9B9690]">Review each item before you confirm.</span>
-            <PrimaryButton onClick={handleConfirm} disabled={isProcessing}>
-              {isProcessing ? "Saving…" : "Tick & confirm"}
+            <span className="text-xs text-[#9B9690]">
+              {committed
+                ? committedStatus
+                : objections.some((_, i) => !verdicts[i])
+                  ? "Tip: pick New wins / Keep old on each objection — unanswered ones keep both decisions."
+                  : "Review each item before you confirm."}
+            </span>
+            <PrimaryButton
+              onClick={handleConfirm}
+              disabled={isProcessing || committed}
+              title={committed ? "Already saved — process new text to confirm again." : undefined}
+            >
+              {isProcessing ? "Saving…" : committed ? "Saved ✓" : "Tick & confirm"}
             </PrimaryButton>
           </div>
         </Card>
