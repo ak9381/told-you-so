@@ -13,8 +13,13 @@ import { ExtractionResult, ExtractedDecision, ExtractedAction } from "@/lib/extr
 import type { Objection, Maybe, TraceStep, Refinement } from "@/lib/agent";
 
 const VERDICTS = ["overrule", "pivot", "keep_old", "flag"] as const;
-const verdictLabel = (v: string) =>
-  v === "keep_old" ? "Keep old" : v.charAt(0).toUpperCase() + v.slice(1);
+const VERDICT_LABELS: Record<string, string> = {
+  overrule: "New wins",
+  pivot: "Pivot",
+  keep_old: "Keep old",
+  flag: "Flag for later",
+};
+const verdictLabel = (v: string) => VERDICT_LABELS[v] ?? v;
 
 const POLITE_CARDS = process.env.NEXT_PUBLIC_FLAG_POLITE_CARDS === "true";
 // Date-only values (meeting_date) are IST calendar days; render them in IST.
@@ -1065,7 +1070,7 @@ export default function HomePage() {
               <h4 className="font-serif text-lg text-[#1A1715] mb-3">Live objections</h4>
               <div className="space-y-3 max-h-[360px] overflow-y-auto">
                 {liveCards.length === 0 && (
-                  <p className="text-sm text-[#9B9690]">No conflicts flagged yet.</p>
+                  <p className="text-sm text-[#9B9690]">No objections yet.</p>
                 )}
                 {liveCards.map((c, i) => {
                   if (c.verdict === "contradicts") {
@@ -1073,7 +1078,7 @@ export default function HomePage() {
                       <div key={i} className="rounded-xl border border-[#C0392B]/40 bg-[#FBE9E7] p-4">
                         <div className="flex items-center justify-between mb-2.5">
                           <span className="font-serif text-base font-semibold text-[#C0392B]">
-                            Objection
+                            OBJECTION
                           </span>
                           <span className="text-[10px] uppercase tracking-wider text-[#C0392B]">
                             {c.topic} · {c.ts}
@@ -1232,7 +1237,7 @@ export default function HomePage() {
         <Card key={i} className="p-5 mb-4 border-l-4 border-[#C0392B]">
           <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
             <div className="flex items-center gap-2">
-              <Chip tone="accent">{POLITE_CARDS ? "Heads up" : "Objection"}</Chip>
+              <Chip tone="accent">OBJECTION</Chip>
               <Chip tone="neutral">{obj.topic.replace(/_/g, " ")}</Chip>
             </div>
             {typeof obj.confidence === "number" && (
@@ -1427,7 +1432,7 @@ export default function HomePage() {
               {committed
                 ? committedStatus
                 : objections.some((_, i) => !verdicts[i])
-                  ? "Tip: pick New wins / Keep old on each objection — unanswered ones keep both decisions."
+                  ? "Tip: on each OBJECTION pick New wins, Pivot, Keep old or Flag for later — unanswered ones keep both decisions."
                   : "Review each item before you confirm."}
             </span>
             <PrimaryButton
