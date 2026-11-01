@@ -52,7 +52,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
     }
   }, [pathname]);
 
-  const handle = (email.split("@")[0] || "you").replace(/\+.*$/, "");
+  const handle = (email.split("@")[0] || "").replace(/\+.*$/, "");
   const initials = handle.slice(0, 2).toUpperCase();
   const currentId = activeProject || projects[0]?.id || null;
   const currentProjectName =
@@ -223,7 +223,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
       <main className="flex-1 min-w-0 flex flex-col">
         {/* Sticky dark header with the tools nav */}
         <header className="sticky top-0 z-30 bg-[#1C1C1E] border-b border-black/30">
-          <nav className="max-w-6xl px-6 md:px-10 py-3 flex items-center justify-end gap-1">
+          <nav className="w-full px-6 md:px-10 py-3 flex items-center justify-end gap-1">
             {TOOLS.map((t) => {
               const active = t.href === "/" ? pathname === "/" : pathname === t.href;
               const href = currentId ? `${t.href}?project=${currentId}` : t.href;
@@ -244,7 +244,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
           </nav>
         </header>
 
-        <div className="px-6 md:px-10 py-8 max-w-6xl w-full">{children}</div>
+        <div className="px-6 md:px-10 py-8 w-full max-w-[1600px] flex-1">{children}</div>
       </main>
     </div>
   );
