@@ -180,6 +180,20 @@ export default function HomePage() {
   const liveOpen =
     meetingLink.trim().length > 0 || listening || liveLines.length > 0 || liveCards.length > 0;
 
+  // Live "AI calls left" counter (server is the source of truth).
+  const [aiLeft, setAiLeft] = useState<number | null>(null);
+  const refreshUsage = useCallback(() => {
+    fetch("/api/usage")
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => {
+        if (d && typeof d.remaining === "number") setAiLeft(d.remaining);
+      })
+      .catch(() => {});
+  }, []);
+  useEffect(() => {
+    refreshUsage();
+  }, [refreshUsage]);
+
   // Upload a .txt/.md transcript or WhatsApp export → fills the box (paste mode).
   function handleFileUpload(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
@@ -255,9 +269,10 @@ export default function HomePage() {
         if (!demo) livePending.current = `${payload}\n${livePending.current}`.trim().slice(-15_000);
       } finally {
         if (!demo) liveInFlight.current = false;
+        refreshUsage();
       }
     },
-    [selectedProjectId]
+    [selectedProjectId, refreshUsage]
   );
 
   function startListening() {
@@ -581,6 +596,7 @@ export default function HomePage() {
       setErrorMsg("Could not reach the server. Please try again.");
     } finally {
       setIsProcessing(false);
+      refreshUsage();
     }
   }
 
@@ -694,7 +710,7 @@ export default function HomePage() {
               ))}
             </div>
             <span className="rounded-full bg-[#F3F3F1] px-3.5 py-1.5 text-sm text-[#6B6560]">
-              60 AI calls left
+              {aiLeft === null ? "AI calls left: …" : `${aiLeft} AI calls left today`}
             </span>
           </div>
         </div>

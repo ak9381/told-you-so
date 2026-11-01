@@ -115,8 +115,14 @@ export async function getUsageStats(userId: string) {
   return {
     callsToday: data?.gemini_calls ?? 0,
     dailyCap: GEMINI_DAILY_CAP,
-    remaining: GEMINI_DAILY_CAP - (data?.gemini_calls ?? 0),
+    remaining: remainingCalls(data?.gemini_calls ?? 0, GEMINI_DAILY_CAP),
     lastLiveCheck: data?.last_live_check_at ?? null,
   };
 }
 
+
+/** Calls left today, never negative. */
+export function remainingCalls(used: number, cap: number): number {
+  const u = Number.isFinite(used) ? used : 0;
+  return Math.max(0, cap - Math.max(0, u));
+}
