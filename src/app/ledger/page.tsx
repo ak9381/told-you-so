@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback } from "react";
 import AppShell from "@/components/AppShell";
 import { log } from "@/lib/log";
 import { fetchProjectsClient } from "@/lib/client-cache";
-import { formatIst } from "@/lib/dates";
+import { formatIst, duePhraseFrom } from "@/lib/dates";
 import {
   Card,
   PageTitle,
@@ -432,6 +432,9 @@ export default function LedgerPage() {
                 {a.due_date ? (
                   <>
                     {" · "}Due: <strong className="font-medium text-[#1A1715]">{formatIst(a.due_date)}</strong>
+                    {duePhraseFrom(a.source_quote) && (
+                      <span className="text-[#9B9690]"> (from &lsquo;{duePhraseFrom(a.source_quote)}&rsquo;)</span>
+                    )}
                     {isOverdue(a) && (
                       <span className="ml-2 rounded-md bg-[#FBE9E7] px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-[#C0392B]">
                         Overdue

@@ -181,3 +181,20 @@ export function parseMeetingDate(text?: string | null, year?: number): string | 
   if (!day || !month || day > 31) return null;
   return `${y}-${pad(month)}-${pad(day)}`;
 }
+
+/**
+ * The due-date phrase in a task's source quote, e.g. "by Wednesday" from
+ * "I'll add Rohan to the team by Wednesday." Null when none is found.
+ */
+export function duePhraseFrom(quote?: string | null): string | null {
+  const s = quote || "";
+  const day = "(?:mon|tues|wednes|thurs|fri|satur|sun)day";
+  const mon = "(?:jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*";
+  const target =
+    `(?:today|tonight|tomorrow(?: (?:morning|night|evening))?|eod|end of (?:the )?(?:day|week|month)|` +
+    `(?:next |this )?${day}(?: (?:morning|night|evening))?|next week|\\d{1,2}(?:st|nd|rd|th)? ${mon}|${mon} \\d{1,2}(?:st|nd|rd|th)?|midnight|noon)`;
+  const m = s.match(new RegExp(`\\b(?:by|before|on|until|due)\\s+${target}\\b`, "i"));
+  if (m) return m[0];
+  const bare = s.match(new RegExp(`\\b(?:tomorrow|tonight|today|${day})\\b`, "i"));
+  return bare ? bare[0] : null;
+}
