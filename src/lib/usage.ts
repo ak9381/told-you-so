@@ -168,3 +168,30 @@ export function remainingCalls(used: number, cap: number): number {
   const u = Number.isFinite(used) ? used : 0;
   return Math.max(0, cap - Math.max(0, u));
 }
+
+
+/**
+ * Reserve up to `n` AI calls in ONE read + ONE write (instead of 2 DB
+ * round-trips per call). Returns how many were granted (0..n), capped by
+ * what is left today. Fails closed (0) if the counter is unavailable.
+ */
+export async function reserveUsage(userId: string, n: number): Promise<number> {
+  if (n <= 0) return 0;
+  const supabase = createServerClient();
+  const day = todayIST();
+  const cap = await capForUser(userId);
+  const { data: existing, error } = await supabase
+    .from("usage")
+    .select("id, gemini_calls")
+    .eq("user_id", userId)
+    .eq("day", day)
+    .maybeSingle();
+  if (error) return 0;
+  const used = existing?.gemini_calls ?? 0;
+  const granted = Math.min(n, remainingCalls(used, cap));
+  if (granted <= 0) return 0;
+  const { error: wErr } = existing
+    ? await supabase.from("usage").update({ gemini_calls: used + granted }).eq("id", existing.id)
+    : await supabase.from("usage").insert({ user_id: userId, day, gemini_calls: granted, last_live_check_at: null });
+  return wErr ? 0 : granted;
+}

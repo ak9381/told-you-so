@@ -1,5 +1,5 @@
 import { log } from "@/lib/log";
-import { checkAndIncrementUsage } from "@/lib/usage";
+import { reserveUsage } from "@/lib/usage";
 import { fetchWithRetry } from "@/lib/http";
 import { createServerClient } from "./supabase";
 import { ExtractedDecision } from "./extractor";
@@ -17,6 +17,22 @@ const GEMINI_MODEL = "gemini-3.5-flash-lite";
 // B2: every decision is conflict-checked. Gemini verify calls per ingest are
 // budgeted (free-tier RPM); decisions past the budget get the conservative
 // offline check (grey "maybe" at most) and the user is told how many.
+export const LONG_MEETING_DECISIONS = 4;
+
+/** Locally-counted AI budget for one ingest (reserved once from usage). */
+export interface UsageBudget { left: number; lite: boolean }
+
+export function takeCall(b?: UsageBudget): boolean {
+  if (!b) return true;
+  if (b.left <= 0) return false;
+  b.left -= 1;
+  return true;
+}
+
+export function liteConfig<T extends { samples: number; useEmbeddings: boolean }>(cfg: T, lite: boolean): T {
+  return lite ? { ...cfg, samples: 1, useEmbeddings: false } : cfg;
+}
+
 export const MAX_AI_VERIFY_CALLS = Math.max(1, Number(process.env.AGENT_MAX_AI_VERIFY_CALLS) || 12);
 
 export interface MemoryDecision {
@@ -267,7 +283,7 @@ async function verifyConflict(
   item: ExtractedDecision,
   topic: string,
   allowGemini = true,
-  userId?: string
+  budget?: UsageBudget
 ): Promise<VerifyOutput> {
   const key = process.env.GEMINI_API_KEY;
   if (!key || !allowGemini) return deterministicVerify(candidates, item, topic);
@@ -289,7 +305,7 @@ Decide the relationship between the NEW statement and the MOST RELEVANT prior de
 
 Return ONLY JSON: {"verdict":"CONTRADICTS|REFINES|UNRELATED","match":<the [number] of the most relevant prior decision, or 0 if none>,"confidence":<a number 0..1 for how sure you are this is a real contradiction>,"reasoning":"one short sentence"}`;
 
-  const cfg = confidenceConfig();
+  const cfg = liteConfig(confidenceConfig(), budget?.lite ?? false);
   try {
     if (!cfg.blend) {
       const one = await geminiVerifyOnce(prompt, key, 0, candidates.length);
@@ -299,7 +315,7 @@ Return ONLY JSON: {"verdict":"CONTRADICTS|REFINES|UNRELATED","match":<the [numbe
     // every extra sample counts against the daily cap and stops at the cap.
     const samples: SampleOut[] = [await geminiVerifyOnce(prompt, key, cfg.temperature, candidates.length)];
     for (let i = 1; i < cfg.samples; i++) {
-      if (userId && !(await checkAndIncrementUsage(userId, false)).allowed) break;
+      if (!takeCall(budget)) break;
       try {
         samples.push(await geminiVerifyOnce(prompt, key, cfg.temperature, candidates.length));
       } catch (e) {
@@ -315,7 +331,7 @@ Return ONLY JSON: {"verdict":"CONTRADICTS|REFINES|UNRELATED","match":<the [numbe
     const agreement = count("contradicts") / samples.length;
     const prior = candidates[lead.matchIndex] ?? candidates[0];
     let cos: number | null = null;
-    if (cfg.useEmbeddings && (!userId || (await checkAndIncrementUsage(userId, false)).allowed)) {
+    if (cfg.useEmbeddings && takeCall(budget)) {
       cos = await embeddingCosine(item.exact_quote, prior.exact_quote, key);
     }
     const rule = ruleSignal(topic, `${item.exact_quote} ${item.summary}`, prior.exact_quote);
@@ -356,6 +372,14 @@ export async function runAgent(
   const notes: string[] = [];
   let aiCalls = 0;
   let offlineOnly = 0;
+  // Long meetings get one sample and no embeddings; the whole ingest's AI
+  // budget is reserved in a single usage read/write.
+  const lite = decisions.length > LONG_MEETING_DECISIONS;
+  const c0 = liteConfig(confidenceConfig(), lite);
+  const perDecision = c0.blend ? c0.samples + (c0.useEmbeddings ? 1 : 0) : 1;
+  const budget: UsageBudget | undefined = userId
+    ? { left: await reserveUsage(userId, Math.min(decisions.length, MAX_AI_VERIFY_CALLS) * perDecision), lite }
+    : undefined;
   const memoryByTopic = new Map<string, MemoryDecision[]>();
   for (const [itemIndex, dec] of decisions.entries()) {
     // 1. search_memory
@@ -383,9 +407,9 @@ export async function runAgent(
     // fall back to the deterministic check instead of failing.
     const withinBudget = aiCalls < MAX_AI_VERIFY_CALLS;
     if (!withinBudget) offlineOnly += 1;
-    const allowGemini = withinBudget && (userId ? (await checkAndIncrementUsage(userId, false)).allowed : true);
+    const allowGemini = withinBudget && takeCall(budget);
     if (allowGemini) aiCalls += 1;
-    const v = await verifyConflict(candidates, dec, dec.topic, allowGemini, userId);
+    const v = await verifyConflict(candidates, dec, dec.topic, allowGemini, budget ?? { left: Infinity, lite });
     if (!v.usedGemini) path = "fallback";
     const prior = candidates[v.matchIndex] ?? candidates[0];
     trace.push({
