@@ -33,7 +33,7 @@ const fmt = (t: string | null) => formatIst(t);
 
 export default function OutboxPage() {
   const [rows, setRows] = useState<OutboxRow[]>([]);
-  const [tick, setTick] = useState(0);
+  const [updatedAt, setUpdatedAt] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState("");
 
@@ -48,10 +48,15 @@ export default function OutboxPage() {
         // storage/URL/scroll unavailable (e.g. private mode) — safe to use defaults
       }
       fetch(pid ? `/api/outbox?projectId=${pid}` : "/api/outbox")
-        .then((r) => r.json())
+        .then(async (r) => {
+          const d = await r.json().catch(() => ({}));
+          if (!r.ok) throw new Error(d.error || `HTTP ${r.status}`);
+          return d;
+        })
         .then((d) => {
           setRows(d.outbox ?? []);
           setLoadError("");
+          setUpdatedAt(formatIst(new Date().toISOString()));
         })
         .catch((e) => {
           log.error("outbox request failed", e);
@@ -60,10 +65,7 @@ export default function OutboxPage() {
         .finally(() => setLoading(false));
     };
     load();
-    const t = setInterval(() => {
-      load();
-      setTick((x) => x + 1);
-    }, 5000);
+    const t = setInterval(load, 5000);
     return () => clearInterval(t);
   }, []);
 
@@ -71,7 +73,9 @@ export default function OutboxPage() {
     <AppShell>
       <PageTitle
         aside={
-          <span className="text-xs text-[#9B9690]">auto-refreshes every 5s · {tick}</span>
+          <span className="text-xs text-[#9B9690]">
+            {updatedAt ? `Live — last updated ${updatedAt}` : "Loading…"}
+          </span>
         }
       >
         Reminders
@@ -105,19 +109,13 @@ export default function OutboxPage() {
               </tr>
             </thead>
             <tbody>
-              {loading &&
-                [1, 2, 3, 4].map((n) => (
-                  <tr key={n} className="border-t border-[#EFEEEA] animate-pulse">
-                    <td className="px-4 py-3"><div className="h-4 bg-[#E7E5E0] rounded w-16" /></td>
-                    <td className="px-4 py-3"><div className="h-4 bg-[#E7E5E0] rounded w-20" /></td>
-                    <td className="px-4 py-3"><div className="h-4 bg-[#E7E5E0] rounded w-48" /></td>
-                    <td className="px-4 py-3"><div className="h-4 bg-[#EFEFEA] rounded w-20" /></td>
-                    <td className="px-4 py-3"><div className="h-4 bg-[#EFEFEA] rounded w-20" /></td>
-                    <td className="px-4 py-3"><div className="h-4 bg-[#EFEFEA] rounded w-12" /></td>
-                    <td className="px-4 py-3"><div className="h-5 bg-[#E7E5E0] rounded-full w-16" /></td>
-                    <td className="px-4 py-3"><div className="h-4 bg-[#EFEFEA] rounded w-24" /></td>
-                  </tr>
-                ))}
+              {loading && (
+                <tr>
+                  <td colSpan={8} className="px-4 py-8 text-[#9B9690] text-center">
+                    Loading reminders…
+                  </td>
+                </tr>
+              )}
               {!loading && rows.length === 0 && (
                 <tr>
                   <td colSpan={8} className="px-4 py-8 text-[#9B9690] italic text-center">
