@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from "react";
 import AppShell from "@/components/AppShell";
 import { log } from "@/lib/log";
 import { fetchProjectsClient } from "@/lib/client-cache";
+import { formatIst } from "@/lib/dates";
 import {
   Card,
   PageTitle,
@@ -222,7 +223,13 @@ export default function LedgerPage() {
   const filed = notionLog.filter((n) => n.status === "filed").length;
   const failed = notionLog.filter((n) => n.status === "failed").length;
   const count = (f: Filter) => (f === "all" ? actions.length : actions.filter((a) => a.status === f).length);
-  const visible = filter === "all" ? actions : actions.filter((a) => a.status === filter);
+  // Soonest due first; tasks without a due date go last.
+  const dueMs = (a: ActionRow) => (a.due_date ? new Date(a.due_date).getTime() : Number.POSITIVE_INFINITY);
+  const visible = (filter === "all" ? actions : actions.filter((a) => a.status === filter))
+    .slice()
+    .sort((x, y) => dueMs(x) - dueMs(y));
+  const isOverdue = (a: ActionRow) => a.status !== "done" && !!a.due_date && new Date(a.due_date).getTime() < Date.now();
+  const ownerOf = (a: ActionRow) => (a.owner && a.owner.toLowerCase() !== "unassigned" ? a.owner : "");
 
   return (
     <AppShell>
@@ -260,9 +267,8 @@ export default function LedgerPage() {
       <div className="mb-6 inline-flex items-center gap-2 rounded-lg bg-[#FFF8E6] border border-[#F0E3B8] px-3.5 py-2 text-sm text-[#7A6A2F]">
         <span>✉️</span>
         <span>
-          Demo note: all reminder emails are delivered to{" "}
-          <strong className="font-semibold">ak9381@nyu.edu</strong> (the recipient&rsquo;s name is in
-          the subject). A verified sending domain would email each owner directly.
+          Demo note: reminder emails go to one verified demo inbox, with the owner&rsquo;s name in the
+          subject. With a verified sending domain they would go to each owner directly.
         </span>
       </div>
 
@@ -378,7 +384,7 @@ export default function LedgerPage() {
               <div className="text-sm text-[#6B6560] mt-1.5">
                 Owner:{" "}
                 <select
-                  value={a.owner || ""}
+                  value={ownerOf(a)}
                   onChange={(e) => {
                     const name = e.target.value;
                     const p = people.find((x) => x.name === name);
@@ -386,8 +392,11 @@ export default function LedgerPage() {
                   }}
                   className="rounded-md border border-[#E0DED8] bg-white px-1.5 py-0.5 text-sm font-medium text-[#1A1715] focus:outline-none focus:border-[#9B9690]"
                 >
-                  {a.owner && !people.some((p) => p.name === a.owner) && (
-                    <option value={a.owner}>{a.owner}</option>
+                  <option value="" disabled>
+                    Unassigned
+                  </option>
+                  {ownerOf(a) && !people.some((p) => p.name === ownerOf(a)) && (
+                    <option value={ownerOf(a)}>{ownerOf(a)}</option>
                   )}
                   {people.map((p) => (
                     <option key={p.id} value={p.name}>
@@ -396,7 +405,14 @@ export default function LedgerPage() {
                   ))}
                 </select>
                 {a.due_date ? (
-                  <> · Due: <strong className="font-medium text-[#1A1715]">{new Date(a.due_date).toLocaleString()}</strong></>
+                  <>
+                    {" · "}Due: <strong className="font-medium text-[#1A1715]">{formatIst(a.due_date)}</strong>
+                    {isOverdue(a) && (
+                      <span className="ml-2 rounded-md bg-[#FBE9E7] px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-[#C0392B]">
+                        Overdue
+                      </span>
+                    )}
+                  </>
                 ) : (
                   " · No due date"
                 )}
@@ -503,7 +519,7 @@ export default function LedgerPage() {
               ) : (
                 <Chip tone="accent">failed</Chip>
               )}
-              <span className="text-[#9B9690]">{new Date(n.created_at).toLocaleTimeString()}</span>
+              <span className="text-[#9B9690]">{formatIst(n.created_at)}</span>
               {n.error && <span className="text-[#C0392B]">— {n.error}</span>}
             </div>
           ))}

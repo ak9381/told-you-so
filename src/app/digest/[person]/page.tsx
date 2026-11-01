@@ -1,4 +1,5 @@
 import { createServerClient } from "@/lib/supabase";
+import { formatIst } from "@/lib/dates";
 import { buildDigest } from "@/lib/digest";
 import { getPageUser } from "@/lib/supabase-ssr";
 import { userProjectIds } from "@/lib/api-guard";
@@ -46,7 +47,7 @@ export default async function DigestPage({
                 <span>
                   {a.title}
                   {a.due_date ? (
-                    <span className="text-[#9B9690]"> — due {new Date(a.due_date).toLocaleString()}</span>
+                    <span className="text-[#9B9690]"> — due {formatIst(a.due_date)}</span>
                   ) : null}
                 </span>
               </li>
