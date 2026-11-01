@@ -127,6 +127,17 @@ confidence is 0-1: 1 = fully faithful, below 0.6 = likely wrong or hallucinated.
     return { status: "verified", overall, items: out, missed };
   } catch (e) {
     log.error("verifyExtraction failed:", e instanceof Error ? e.message : e);
-    return NOT_VERIFIED("AI check timed out or failed");
+    return NOT_VERIFIED(verifyErrorReason(e));
   }
+}
+
+
+/** Human-readable reason for a failed AI check (shown on the card). */
+export function verifyErrorReason(e: unknown): string {
+  const name = e instanceof Error ? e.name : "";
+  const msg = (e instanceof Error ? e.message : String(e ?? "")).replace(/\s+/g, " ").trim();
+  if (name === "AbortError" || /abort/i.test(msg)) return "AI check timed out";
+  if (/too many subrequests/i.test(msg)) return "AI check skipped: too many requests in one ingest";
+  if (e instanceof SyntaxError) return "AI check returned unreadable output";
+  return `AI check failed: ${msg.slice(0, 120) || "unknown error"}`;
 }
