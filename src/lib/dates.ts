@@ -147,3 +147,37 @@ export function describeDue(raw?: string | null): { text: string; inferred: bool
   const day = d.toLocaleDateString("en-GB", { timeZone: "Asia/Kolkata", weekday: "short", day: "numeric", month: "short" });
   return { text: `${day.replace(",", "")} (from '${phrase}')`, inferred: true };
 }
+
+const MONTHS = ["jan", "feb", "mar", "apr", "may", "jun", "jul", "aug", "sep", "oct", "nov", "dec"];
+
+/**
+ * A meeting date written in a file name or transcript header, as YYYY-MM-DD:
+ * "28oct", "28 Oct", "4-nov", "Oct 28", "October 28th", or "2026-10-28".
+ * Day-month without a year uses `year` (default: the current IST year).
+ * Returns null when nothing date-like is found.
+ */
+export function parseMeetingDate(text?: string | null, year?: number): string | null {
+  const s = (text || "").toLowerCase();
+  if (!s) return null;
+  const pad = (n: number) => String(n).padStart(2, "0");
+  const iso = s.match(/\b(20\d{2})-(\d{1,2})-(\d{1,2})\b/);
+  if (iso) {
+    const [y, m, d] = [Number(iso[1]), Number(iso[2]), Number(iso[3])];
+    if (m >= 1 && m <= 12 && d >= 1 && d <= 31) return `${y}-${pad(m)}-${pad(d)}`;
+  }
+  const y = year ?? Number(new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Kolkata" }).slice(0, 4));
+  const mon = "(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*";
+  const dm = s.match(new RegExp(`(?:^|[^0-9a-z])(\\d{1,2})(?:st|nd|rd|th)?[\\s._-]*${mon}(?![a-z])`));
+  const md = s.match(new RegExp(`(?:^|[^a-z])${mon}[\\s._-]*(\\d{1,2})(?:st|nd|rd|th)?(?![0-9])`));
+  let day: number | null = null;
+  let month: number | null = null;
+  if (dm) {
+    day = Number(dm[1]);
+    month = MONTHS.indexOf(dm[2]) + 1;
+  } else if (md) {
+    month = MONTHS.indexOf(md[1]) + 1;
+    day = Number(md[2]);
+  }
+  if (!day || !month || day > 31) return null;
+  return `${y}-${pad(month)}-${pad(day)}`;
+}

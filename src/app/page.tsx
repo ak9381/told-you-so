@@ -1,6 +1,6 @@
 "use client";
 
-import { formatIst, describeDue } from "@/lib/dates";
+import { formatIst, describeDue, parseMeetingDate } from "@/lib/dates";
 import { decisionBadge } from "@/lib/decision-status";
 import { meetingLabel } from "@/lib/meeting-label";
 import { DEMO_CLIPS, clipTranscript } from "@/lib/demo-clips";
@@ -163,6 +163,7 @@ export default function HomePage() {
   const [projectsLoaded, setProjectsLoaded] = useState(false);
   const [meetingLink, setMeetingLink] = useState("");
   const [meetingName, setMeetingName] = useState("");
+  const [dateNote, setDateNote] = useState("");
   const [meetingDate, setMeetingDate] = useState<string>(() => new Date().toLocaleDateString("en-CA")); // local date, not UTC
   const [uploadType, setUploadType] = useState<"notes" | "transcript" | "whatsapp" | "slack">(
     "notes"
@@ -227,6 +228,14 @@ export default function HomePage() {
       setActiveTab("paste");
       setRawInput(text);
       setMeetingName((n) => n || base);
+      // Meeting date: from the file name ("…-28oct") or the transcript header.
+      const parsedDate = parseMeetingDate(base) || parseMeetingDate(text.split("\n").slice(0, 3).join(" "));
+      if (parsedDate) {
+        setMeetingDate(parsedDate);
+        setDateNote(`Meeting date set to ${formatIst(parsedDate, { time: false })} from the file — change it if needed.`);
+      } else {
+        setDateNote("No date found in the file — set the meeting date before you confirm.");
+      }
       if (lower.includes("whatsapp")) setUploadType("whatsapp");
       else if (lower.includes("slack")) setUploadType("slack");
       else if (lower.includes("transcript")) setUploadType("transcript");
@@ -967,7 +976,9 @@ export default function HomePage() {
           </button>
           <div className="mt-2 flex items-center justify-between gap-2">
             {activeTab === "paste" && rawInput ? (
-              <p className="text-xs text-[#1C7A4A]">Loaded — review in the Dictate box, then Process.</p>
+              <p className="text-xs text-[#1C7A4A]">
+                Loaded — review in the Dictate box, then Process.{dateNote ? ` ${dateNote}` : ""}
+              </p>
             ) : (
               <span />
             )}
