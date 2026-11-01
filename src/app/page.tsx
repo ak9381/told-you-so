@@ -1190,30 +1190,35 @@ export default function HomePage() {
                 {liveLines.map((l) => (
                   <div key={l.id} className="flex items-start gap-2.5">
                     <span className="text-[#9B9690] shrink-0 tabular-nums text-xs pt-0.5">{l.ts}</span>
-                    <input
-                      aria-label="Speaker name"
-                      list="live-team"
-                      title="Click to change who said this"
-                      value={l.speaker}
-                      onChange={(e) => tagSpeaker(l.id, e.target.value)}
-                      onFocus={(e) => {
-                        if (e.target.value === "Speaker ?")
-                          tagSpeaker(l.id, lastSpeaker === "Speaker ?" ? "" : lastSpeaker);
-                      }}
-                      className={`w-24 shrink-0 bg-transparent border-b border-dashed text-sm focus:outline-none ${
-                        l.speaker === "Speaker ?"
-                          ? "border-[#C0392B] text-[#C0392B]"
-                          : "border-[#E0DED8] text-[#6B6560]"
-                      }`}
-                    />
-                    <span className="text-[#1A1715]">{l.text}</span>
+                    {/* Name is plain text (always visible); the transparent select on top lets you reassign it. */}
+                    <span className="relative w-24 shrink-0">
+                      <span
+                        className={`block truncate border-b border-dashed text-sm font-medium ${
+                          isKnownSpeaker(l.speaker) ? "border-[#E0DED8] text-[#1A1715]" : "border-[#C0392B] text-[#C0392B]"
+                        }`}
+                      >
+                        {isKnownSpeaker(l.speaker) ? l.speaker : "Who?"}
+                      </span>
+                      <select
+                        aria-label={`Speaker: ${l.speaker}. Change who said this`}
+                        title="Click to change who said this"
+                        value={l.speaker}
+                        onChange={(e) => tagSpeaker(l.id, e.target.value)}
+                        className="absolute inset-0 w-full cursor-pointer opacity-0"
+                      >
+                        {Array.from(new Set([l.speaker, ...team, ...(lastSpeaker !== "Speaker ?" ? [lastSpeaker] : [])])).map((n) => (
+                          <option key={n} value={n}>
+                            {isKnownSpeaker(n) ? n : "Who?"}
+                          </option>
+                        ))}
+                      </select>
+                    </span>
+                    <span className="text-[#1A1715]">
+                      <span className="sr-only">{l.speaker}: </span>
+                      {l.text}
+                    </span>
                   </div>
                 ))}
-                <datalist id="live-team">
-                  {team.map((n) => (
-                    <option key={n} value={n} />
-                  ))}
-                </datalist>
                 {interim && (
                   <div className="flex items-start gap-2.5 opacity-50">
                     <span className="text-[#9B9690] shrink-0 text-xs pt-0.5">…</span>
