@@ -538,13 +538,17 @@ export default function HomePage() {
   }
 
   const lastTimelinePid = useRef<string | null>(null);
+  const timelineReq = useRef(0); // only the newest timeline response may win
 
   const loadTimeline = useCallback((pid: string, force = false) => {
     if (!pid || pid.startsWith("proj-") || (!force && lastTimelinePid.current === pid)) return;
     lastTimelinePid.current = pid;
-    fetch(`/api/timeline?projectId=${pid}`)
+    const req = ++timelineReq.current;
+    fetch(`/api/timeline?projectId=${pid}&t=${Date.now()}`, { cache: "no-store" })
       .then((r) => r.json())
-      .then((d) => setTimeline(d.decisions ?? []))
+      .then((d) => {
+        if (req === timelineReq.current) setTimeline(d.decisions ?? []);
+      })
       .catch((e) => {
         lastTimelinePid.current = null;
         log.error("timeline request failed", e);
@@ -566,9 +570,12 @@ export default function HomePage() {
     const timelinePromise = initialPid
       ? (() => {
           lastTimelinePid.current = initialPid;
-          return fetch(`/api/timeline?projectId=${initialPid}`)
+          const req = ++timelineReq.current;
+          return fetch(`/api/timeline?projectId=${initialPid}`, { cache: "no-store" })
             .then((r) => r.json())
-            .then((d) => setTimeline(d.decisions ?? []))
+            .then((d) => {
+              if (req === timelineReq.current) setTimeline(d.decisions ?? []);
+            })
             .catch((e) => {
               lastTimelinePid.current = null;
               log.error("timeline request failed", e);

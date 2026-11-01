@@ -6,6 +6,8 @@ import { requireUser, canAccessProject } from "@/lib/api-guard";
 // Decision spine for a project: all decisions grouped by topic, newest first,
 // with their status (active / superseded / overruled) so the UI can strike
 // through the ones that were ruled against.
+export const dynamic = "force-dynamic";
+
 export async function GET(request: NextRequest) {
   const projectId = request.nextUrl.searchParams.get("projectId");
   if (!projectId) return NextResponse.json({ decisions: [] });
@@ -35,5 +37,6 @@ export async function GET(request: NextRequest) {
     const mm = m as { meeting_date?: string | null; title?: string | null } | null;
     return { ...rest, meeting_date: mm?.meeting_date ?? null, meeting_title: mm?.title ?? null };
   });
-  return NextResponse.json({ decisions });
+  // Never cache: the history must update right after Tick & confirm.
+  return NextResponse.json({ decisions }, { headers: { "Cache-Control": "no-store" } });
 }
