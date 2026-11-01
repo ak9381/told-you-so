@@ -22,7 +22,7 @@ export async function GET(request: NextRequest) {
   if (projectId) {
     q = q.eq("project_id", projectId);
   } else {
-    q = q.or(`user_id.eq.${auth.user.id},project_id.is.null`);
+    q = q.eq("user_id", auth.user.id);
   }
 
   const { data, error } = await q;
