@@ -275,7 +275,11 @@ export default function HomePage() {
     [selectedProjectId, refreshUsage]
   );
 
-  function startListening() {
+  async function startListening() {
+    if (!(await hasMicrophone())) {
+      setLiveStatus(`${MIC_MISSING} Or use Play demo clip.`);
+      return;
+    }
     const W = window as unknown as {
       webkitSpeechRecognition?: new () => unknown;
       SpeechRecognition?: new () => unknown;
@@ -291,7 +295,7 @@ export default function HomePage() {
       interimResults: boolean;
       lang: string;
       onresult: (e: unknown) => void;
-      onerror: () => void;
+      onerror: (e?: unknown) => void;
       start: () => void;
       stop: () => void;
     };
@@ -323,7 +327,11 @@ export default function HomePage() {
       }
       setInterim(interimText);
     };
-    rec.onerror = () => setLiveStatus("Mic error — use Play demo clip.");
+    rec.onerror = (e?: unknown) => {
+      const code = (e as { error?: string } | undefined)?.error;
+      if (code === "no-speech" || code === "aborted") return;
+      setLiveStatus(`${micErrorText(code)} You can still use Play demo clip.`);
+    };
     rec.start();
     recognitionRef.current = rec;
     setListening(true);
@@ -406,7 +414,12 @@ export default function HomePage() {
   const liveObjectionCount = liveCards.filter((c) => c.verdict === "contradicts").length;
 
   // In-app dictation (Chrome Web Speech) — free, needs no Wispr. Appends to the box.
-  function startDictation() {
+  async function startDictation() {
+    setErrorMsg(null);
+    if (!(await hasMicrophone())) {
+      setErrorMsg(MIC_MISSING);
+      return;
+    }
     const W = window as unknown as {
       webkitSpeechRecognition?: new () => unknown;
       SpeechRecognition?: new () => unknown;
@@ -422,7 +435,7 @@ export default function HomePage() {
       lang: string;
       onresult: (e: unknown) => void;
       onend: () => void;
-      onerror: () => void;
+      onerror: (e?: unknown) => void;
       start: () => void;
       stop: () => void;
     };
@@ -441,7 +454,10 @@ export default function HomePage() {
       if (finalText.trim()) setRawInput((prev) => (prev ? prev + " " : "") + finalText.trim());
     };
     rec.onend = () => setMicOn(false);
-    rec.onerror = () => setMicOn(false);
+    rec.onerror = (e?: unknown) => {
+      setMicOn(false);
+      setErrorMsg(micErrorText((e as { error?: string } | undefined)?.error));
+    };
     rec.start();
     dictationRef.current = rec;
     setActiveTab("debrief");
@@ -1506,6 +1522,27 @@ function findCheck(v: Verification | null, kind: ItemCheck["kind"], index: numbe
 /** "02:30" is a position in the transcript, not a clock time — say so. */
 function offsetLabel(s: string): string {
   return /^\d{1,2}:\d{2}(:\d{2})?$/.test(s.trim()) ? `${s.trim()} into transcript` : s;
+}
+
+const MIC_MISSING =
+  "No microphone found. Plug one in (or allow mic access), or dictate with Wispr Flow and paste the text here.";
+
+async function hasMicrophone(): Promise<boolean> {
+  try {
+    if (!navigator.mediaDevices?.enumerateDevices) return true; // can't tell — let the browser try
+    const devices = await navigator.mediaDevices.enumerateDevices();
+    return devices.some((d) => d.kind === "audioinput");
+  } catch {
+    return true;
+  }
+}
+
+function micErrorText(code?: string): string {
+  if (code === "audio-capture") return MIC_MISSING;
+  if (code === "not-allowed" || code === "service-not-allowed")
+    return "Microphone access is blocked. Allow the mic in the browser's address bar, or use Wispr Flow and paste.";
+  if (code === "network") return "Speech recognition needs an internet connection.";
+  return "The microphone stopped unexpectedly. Try again, or use Wispr Flow and paste.";
 }
 
 function VerifyChip({ verification, kind, index }: { verification: Verification | null; kind: ItemCheck["kind"]; index: number }) {
