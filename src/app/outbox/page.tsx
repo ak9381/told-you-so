@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import AppShell from "@/components/AppShell";
 import { Card, PageTitle, Chip } from "@/components/ui";
 import { log } from "@/lib/log";
+import { formatIst } from "@/lib/dates";
 
 interface OutboxRow {
   id: string;
@@ -23,7 +24,12 @@ function statusTone(s: string): "neutral" | "accent" | "green" {
   if (s === "FAILED") return "accent";
   return "neutral";
 }
-const fmt = (t: string | null) => (t ? new Date(t).toLocaleTimeString() : "—");
+const STATUS_LABEL: Record<string, string> = {
+  SENT: "Sent to demo inbox",
+  FAILED: "Not delivered",
+  SCHEDULED: "Scheduled",
+};
+const fmt = (t: string | null) => formatIst(t);
 
 export default function OutboxPage() {
   const [rows, setRows] = useState<OutboxRow[]>([]);
@@ -78,10 +84,9 @@ export default function OutboxPage() {
 
       <p className="text-[#6B6560] -mt-4 mb-8 max-w-2xl">
         Every reminder &amp; weekly-digest email we&rsquo;ve scheduled or sent, with delivery status.
-        For the demo these all land in the verified inbox{" "}
-        <strong className="font-medium text-[#1A1715]">ak9381@nyu.edu</strong> (the intended
-        person&rsquo;s name is in the subject) — a verified sending domain would send to each owner
-        directly.
+        For the demo these all land in one verified demo inbox (the intended person&rsquo;s name is
+        in the subject) — a verified sending domain would send to each owner directly. WhatsApp
+        reminders aren&rsquo;t supported yet; WhatsApp is an input (chat export) only.
       </p>
 
       <Card className="p-0 overflow-hidden">
@@ -123,14 +128,16 @@ export default function OutboxPage() {
               {rows.map((r) => (
                 <tr key={r.id} className="border-t border-[#EFEEEA]">
                   <td className="px-4 py-3 text-[#6B6560] uppercase text-xs tracking-wide">{r.type}</td>
-                  <td className="px-4 py-3 text-[#1A1715]">{r.person_name || "—"}</td>
+                  <td className="px-4 py-3 text-[#1A1715]">
+                    {r.person_name && r.person_name.toLowerCase() !== "unassigned" ? r.person_name : "Unassigned"}
+                  </td>
                   <td className="px-4 py-3 text-[#1A1715]">{r.subject || "—"}</td>
                   <td className="px-4 py-3 text-[#6B6560]">{fmt(r.scheduled_at)}</td>
                   <td className="px-4 py-3 text-[#6B6560]">{fmt(r.sent_at)}</td>
                   <td className="px-4 py-3 text-[#6B6560]">{r.channel}</td>
                   <td className="px-4 py-3">
-                    <Chip tone={statusTone(r.status)}>{r.status}</Chip>
-                    {r.error ? <span className="ml-2 text-xs text-[#C0392B]">{r.error}</span> : null}
+                    <Chip tone={statusTone(r.status)}>{STATUS_LABEL[r.status] ?? r.status}</Chip>
+                    {r.error ? <div className="mt-1 text-xs text-[#C0392B]">{r.error}</div> : null}
                   </td>
                   <td className="px-4 py-3 text-[#9B9690]">{r.resend_id ? r.resend_id.slice(0, 10) + "…" : "—"}</td>
                 </tr>
