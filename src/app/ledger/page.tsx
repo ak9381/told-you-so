@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from "react";
 import AppShell from "@/components/AppShell";
 import { log } from "@/lib/log";
+import { fetchProjectsClient } from "@/lib/client-cache";
 import {
   Card,
   PageTitle,
@@ -51,6 +52,19 @@ function currentProjectId(): string | null {
   }
 }
 
+/** The selected project, or the first one when nothing is chosen yet (fresh login). */
+async function ensureProjectId(): Promise<string | null> {
+  const pid = currentProjectId();
+  if (pid) return pid;
+  try {
+    const first = (await fetchProjectsClient()).projects?.[0]?.id ?? null;
+    if (first) localStorage.setItem("tys_project", first);
+    return first;
+  } catch {
+    return null;
+  }
+}
+
 export default function LedgerPage() {
   const [actions, setActions] = useState<ActionRow[]>([]);
   const [notionLog, setNotionLog] = useState<NotionLogRow[]>([]);
@@ -62,16 +76,11 @@ export default function LedgerPage() {
   const [newMemberName, setNewMemberName] = useState("");
   const [newMemberEmail, setNewMemberEmail] = useState("");
 
-  const load = useCallback((silent = false) => {
+  const load = useCallback(async (silent = false) => {
     if (!silent) setLoading(true);
-    let pid: string | null = null;
-    try {
-      pid =
-        new URLSearchParams(window.location.search).get("project") ||
-        localStorage.getItem("tys_project");
-    } catch {
-      // storage/URL/scroll unavailable (e.g. private mode) — safe to use defaults
-    }
+    // Fresh sessions have no saved project: fall back to the first one so the
+    // team list loads and "Add member" has a project to add to.
+    const pid = await ensureProjectId();
     const url = pid ? `/api/ledger?projectId=${pid}` : "/api/ledger";
     const ledgerPromise = fetch(url)
       .then((r) => r.json())
@@ -107,21 +116,32 @@ export default function LedgerPage() {
   async function addMember() {
     const name = newMemberName.trim();
     if (!name) return;
-    const r = await fetch("/api/people", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ name, email: newMemberEmail.trim(), projectId: currentProjectId() }),
-    });
-    const d = await r.json();
-    if (d.person) {
+    const projectId = await ensureProjectId();
+    if (!projectId) {
+      setMsg("Create or pick a project first (top left), then add people.");
+      return;
+    }
+    let d: { person?: { id: string; name: string; email: string | null }; error?: string } = {};
+    try {
+      const r = await fetch("/api/people", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name, email: newMemberEmail.trim(), projectId }),
+      });
+      d = await r.json().catch(() => ({ error: `Could not add member (HTTP ${r.status})` }));
+    } catch {
+      d = { error: "Could not reach the server. Try again." };
+    }
+    const person = d.person;
+    if (person) {
       setPeople((prev) =>
-        prev.some((p) => p.id === d.person.id)
-          ? prev.map((p) => (p.id === d.person.id ? d.person : p))
-          : [...prev, d.person]
+        prev.some((p) => p.id === person.id)
+          ? prev.map((p) => (p.id === person.id ? person : p))
+          : [...prev, person]
       );
       setNewMemberName("");
       setNewMemberEmail("");
-      setMsg(`Added ${d.person.name} to the team`);
+      setMsg(`Added ${person.name} to the team`);
     } else {
       setMsg(d.error || "Could not add member");
     }
