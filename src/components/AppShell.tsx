@@ -232,8 +232,8 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
       </aside>
 
       <main className="flex-1 min-w-0 flex flex-col">
-        {/* Sticky dark header with the tools nav */}
-        <header className="sticky top-0 z-30 bg-[#1C1C1E] border-b border-black/30">
+        {/* Sticky translucent white header with the tools nav */}
+        <header className="sticky top-0 z-30 bg-white/70 backdrop-blur-md supports-[backdrop-filter]:bg-white/60 border-b border-[#E7E5E0]/80">
           <nav className="w-full px-6 md:px-10 py-3 flex items-center justify-end gap-1">
             {TOOLS.map((t) => {
               const active = t.href === "/" ? pathname === "/" : pathname === t.href;
@@ -244,8 +244,8 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
                   href={href}
                   className={`rounded-lg px-3 py-1.5 text-sm font-medium transition-colors ${
                     active
-                      ? "bg-white/15 text-white"
-                      : "text-white/70 hover:text-white hover:bg-white/10"
+                      ? "bg-[#1A1715]/[0.07] text-[#1A1715]"
+                      : "text-[#6B6560] hover:text-[#1A1715] hover:bg-[#1A1715]/[0.05]"
                   }`}
                 >
                   {t.label}
