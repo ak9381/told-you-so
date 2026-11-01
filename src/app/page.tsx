@@ -543,6 +543,17 @@ export default function HomePage() {
   async function handleExtract(textArg?: string) {
     const input = typeof textArg === "string" ? textArg : rawInput;
     if (!input.trim()) return;
+    // Don't silently wipe an unconfirmed review tray (e.g. a transcript's items
+    // when the user then dictates a debrief).
+    const pending = result && !committed ? result.decisions.length + result.actions.length : 0;
+    if (
+      pending > 0 &&
+      !window.confirm(
+        `The review tray has ${pending} unconfirmed item${pending === 1 ? "" : "s"}. Processing again will replace them.\n\nPress Cancel to go back and Tick & confirm them first, or OK to replace.`
+      )
+    ) {
+      return;
+    }
     setIsProcessing(true);
     setCommittedStatus(null);
     setCommitted(false);
