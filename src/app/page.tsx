@@ -1,5 +1,6 @@
 "use client";
 
+import { formatIst } from "@/lib/dates";
 import { DEMO_CLIPS, clipTranscript } from "@/lib/demo-clips";
 import { useState, useEffect, useRef, useCallback } from "react";
 import AppShell from "@/components/AppShell";
@@ -508,16 +509,9 @@ export default function HomePage() {
   }, [selectedProjectId, loadTimeline]);
 
   const now = new Date();
-  const formattedTime = now.toLocaleDateString("en-IN", {
-    day: "numeric",
-    month: "short",
-    year: "numeric",
-    hour: "numeric",
-    minute: "2-digit",
-    hour12: true,
-  });
+  const formattedTime = formatIst(now.toISOString());
   const currentProjectName = projects.find((p) => p.id === selectedProjectId)?.name || "Meeting";
-  const autoMeetingTitle = `${currentProjectName} #2 · ${formattedTime} IST`;
+  const autoMeetingTitle = `${currentProjectName} · ${formattedTime}`;
   const dateLabel = meetingDate
     ? new Date(meetingDate + "T00:00:00").toLocaleDateString("en-IN", {
         day: "numeric",
@@ -681,7 +675,7 @@ export default function HomePage() {
             <h1 className="font-serif text-4xl md:text-5xl font-semibold tracking-tight text-[#1A1715]">
               {projectLabel}
             </h1>
-            <p className="text-[#9B9690] text-sm mt-1">{projectsLoaded ? meetingTitleToUse : ""}</p>
+            <p className="text-[#9B9690] text-sm mt-1">{projectsLoaded && meetingName.trim() ? meetingTitleToUse : ""}</p>
           </div>
           <div className="flex items-center gap-3">
             <div className="hidden sm:inline-flex items-center rounded-full bg-[#F3F3F1] px-1 py-1 text-sm">
@@ -763,7 +757,9 @@ export default function HomePage() {
                 <>🎤 Use mic</>
               )}
             </button>
-            <PrimaryButton onClick={() => handleExtract()} disabled={isProcessing || !rawInput.trim()}>
+            <PrimaryButton onClick={() => handleExtract()} disabled={isProcessing || !rawInput.trim()}
+              title={!rawInput.trim() ? "Paste or dictate some text first" : undefined}
+            >
               {isProcessing ? "Analyzing…" : "Process"}
             </PrimaryButton>
           </div>
@@ -913,6 +909,7 @@ export default function HomePage() {
           <button
             onClick={launchFromLink}
             disabled={!meetingLink.trim()}
+            title={!meetingLink.trim() ? "Paste a Google Meet / Zoom link first" : undefined}
             className="w-full bg-[#1C1C1E] text-white rounded-xl py-3 text-sm font-medium hover:bg-[#333338] disabled:opacity-50 transition-colors"
           >
             Launch &amp; Listen
@@ -951,15 +948,22 @@ export default function HomePage() {
 
           <div className="flex flex-wrap gap-3 items-center">
             {!listening ? (
-              <PrimaryButton onClick={startListening} disabled={!speechSupported || !selectedProjectId}>
+              <PrimaryButton onClick={startListening} disabled={!speechSupported || !selectedProjectId}
+                title={!speechSupported ? "Live captions need Chrome or Edge" : !selectedProjectId ? "Pick a project first" : undefined}
+              >
                 ● Start listening
               </PrimaryButton>
             ) : (
               <PrimaryButton onClick={stopListening}>■ Stop</PrimaryButton>
             )}
-            <SecondaryButton onClick={playDemoClip} disabled={!selectedProjectId}>
+            <SecondaryButton onClick={playDemoClip} disabled={!selectedProjectId} title={!selectedProjectId ? "Pick a project first" : undefined}>
               ▶ Play demo clip
             </SecondaryButton>
+            {(!selectedProjectId || !speechSupported) && (
+              <span className="text-xs text-[#9B9690]">
+                {!selectedProjectId ? "Pick a project in the sidebar to enable these." : "Live captions need Chrome or Edge."}
+              </span>
+            )}
             {liveLines.length > 0 && (
               <SecondaryButton onClick={endLiveMeeting}>End meeting → tray</SecondaryButton>
             )}
@@ -1035,7 +1039,7 @@ export default function HomePage() {
                             <span className="uppercase text-[10px] font-semibold tracking-wider">Then</span>{" "}
                             — &ldquo;{c.old_quote}&rdquo;
                             {c.old_speaker ? ` — ${c.old_speaker}` : ""}
-                            {c.old_meeting_seq ? ` · M#${c.old_meeting_seq}` : ""}
+                            {c.old_meeting_seq ? ` · Meeting #${c.old_meeting_seq}` : ""}
                           </div>
                           <div className="text-[#1A1715]">
                             <span className="uppercase text-[10px] font-semibold tracking-wider text-[#C0392B]">
@@ -1200,7 +1204,7 @@ export default function HomePage() {
             <div className="border-l-2 border-[#E0DED8] pl-3">
               <div className="text-[11px] uppercase text-[#9B9690] mb-1">
                 Then — Meeting #{obj.old.meeting_seq}
-                {obj.old.said_at ? ` · ${obj.old.said_at}` : ""}
+                {obj.old.said_at ? ` · ${offsetLabel(obj.old.said_at)}` : ""}
               </div>
               <blockquote className="italic text-[#6B6560]">&ldquo;{obj.old.quote}&rdquo;</blockquote>
               <div className="text-[#9B9690] mt-1">— {obj.old.speaker}</div>
@@ -1298,7 +1302,7 @@ export default function HomePage() {
               <h4 className="font-serif text-xl text-[#1A1715]">Confirmation tray</h4>
               <p className="text-xs text-[#9B9690]">
                 Nothing is saved or sent to Notion until you tick and confirm. Confirmed tasks file
-                to Notion; reminder emails go to <strong className="font-medium text-[#6B6560]">ak9381@nyu.edu</strong> for the demo.
+                to Notion; reminder emails go to a verified demo inbox for now.
               </p>
             </div>
             {committedStatus && (
@@ -1424,9 +1428,15 @@ export default function HomePage() {
                         <span className={`flex-1 ${struck ? "line-through text-[#B9B6AE]" : "text-[#1A1715]"}`}>
                           &ldquo;{d.exact_quote}&rdquo;{" "}
                           <span className="text-[#9B9690]">
-                            — {d.speaker} · M#{d.meeting_seq}
-                            {d.meeting_date ? ` · ${shortDate(d.meeting_date)}` : ""}
-                            {d.said_at ? ` · ${d.said_at}` : ""}
+                            — {d.speaker} · Meeting #{d.meeting_seq}
+                            {d.meeting_date ? ` (${shortDate(d.meeting_date)})` : ""}
+                            {d.said_at ? ` · ${offsetLabel(d.said_at)}` : ""}
+                          </span>{" "}
+                          <span
+                            className="inline-block rounded bg-[#F3F3F1] px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-[#9B9690]"
+                            title="Saved before verification scores were recorded"
+                          >
+                            not verified
                           </span>
                         </span>
                         {struck && (
@@ -1464,6 +1474,11 @@ const LOW_CONFIDENCE = 0.7;
 
 function findCheck(v: Verification | null, kind: ItemCheck["kind"], index: number) {
   return v?.items.find((c) => c.kind === kind && c.index === index);
+}
+
+/** "02:30" is a position in the transcript, not a clock time — say so. */
+function offsetLabel(s: string): string {
+  return /^\d{1,2}:\d{2}(:\d{2})?$/.test(s.trim()) ? `${s.trim()} into transcript` : s;
 }
 
 function VerifyChip({ verification, kind, index }: { verification: Verification | null; kind: ItemCheck["kind"]; index: number }) {
