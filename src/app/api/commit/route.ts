@@ -146,6 +146,14 @@ export async function POST(request: NextRequest) {
           : quoteToDecisionId[ov.newQuote] ?? null;
         if (!isUuid(ov.oldDecisionId)) continue;
         if (!newDecisionId) continue; // objections table requires both decision ids
+        // The old decision must belong to this (already access-checked) project.
+        const { data: oldRow } = await supabase
+          .from("decisions")
+          .select("id")
+          .eq("id", ov.oldDecisionId)
+          .eq("project_id", projectId)
+          .maybeSingle();
+        if (!oldRow) continue;
 
         await supabase.from("objections").insert({
           project_id: projectId,
