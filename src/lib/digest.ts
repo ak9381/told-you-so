@@ -1,3 +1,4 @@
+import { formatEmailDue } from "@/lib/dates";
 import { log } from "@/lib/log";
 import { createServerClient } from "./supabase";
 import { sendEmail } from "./email";
@@ -70,7 +71,7 @@ export function renderDigestHtml(d: PersonDigest): string {
   return `<div style="font-family:system-ui;max-width:600px">
     <h2>Weekly digest — ${esc(d.person)}</h2>
     <h3>Your open tasks</h3>
-    ${items(d.actions.filter((a) => a.status === "open").map((a) => `${esc(a.title)}${a.due_date ? ` — due ${esc(a.due_date)}` : ""}`))}
+    ${items(d.actions.filter((a) => a.status === "open").map((a) => `${esc(a.title)}${a.due_date ? ` — due ${esc(formatEmailDue(a.due_date))}` : ""}`))}
     <h3>What changed this week</h3>
     ${items(d.changed.map((c) => `[${esc(c.topic)}] &ldquo;${esc(c.exact_quote)}&rdquo;${c.status !== "active" ? ` (${esc(c.status)})` : ""}`))}
     <h3>Open objections involving you</h3>

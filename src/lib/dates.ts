@@ -198,3 +198,19 @@ export function duePhraseFrom(quote?: string | null): string | null {
   const bare = s.match(new RegExp(`\\b(?:tomorrow|tonight|today|${day})\\b`, "i"));
   return bare ? bare[0] : null;
 }
+
+/** Email due-date format: "Fri 6 Nov, 9:00 am IST" (date-only → "Fri 6 Nov"). */
+export function formatEmailDue(value?: string | null): string {
+  if (!value) return "no due date";
+  const dateOnly = /^\d{4}-\d{2}-\d{2}$/.test(value);
+  const d = new Date(dateOnly ? `${value}T12:00:00+05:30` : value);
+  if (isNaN(d.getTime())) return value;
+  const tz = { timeZone: "Asia/Kolkata" } as const;
+  const wd = d.toLocaleDateString("en-GB", { ...tz, weekday: "short" });
+  const day = d.toLocaleDateString("en-GB", { ...tz, day: "numeric" });
+  const mon = d.toLocaleDateString("en-GB", { ...tz, month: "short" });
+  const date = `${wd} ${day} ${mon}`;
+  if (dateOnly) return date;
+  const time = d.toLocaleTimeString("en-US", { ...tz, hour: "numeric", minute: "2-digit", hour12: true }).toLowerCase();
+  return `${date}, ${time} IST`;
+}

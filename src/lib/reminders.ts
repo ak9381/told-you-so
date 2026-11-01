@@ -1,3 +1,4 @@
+import { formatEmailDue } from "@/lib/dates";
 import { createServerClient } from "./supabase";
 import { sendEmail } from "./email";
 
@@ -98,7 +99,7 @@ export async function runReminders(opts?: {
         <p><b>${personName}</b>, a reminder from Told You So:</p>
         <h3>${a.title}</h3>
         ${a.source_quote ? `<blockquote style="color:#666">&ldquo;${a.source_quote}&rdquo;</blockquote>` : ""}
-        <p>Due: ${a.due_date}</p>
+        <p>Due: ${formatEmailDue(a.due_date)}</p>
       </div>`,
     });
 
